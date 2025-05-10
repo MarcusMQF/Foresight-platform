@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'Black Bones';
+  src: url('./assets/fonts/black-bones.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.font-foresight {
+  font-family: 'Black Bones', sans-serif;
+}
