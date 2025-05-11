@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useWindowSize } from '../../hooks/useWindowSize';
 import icon from '../../assets/images/icon.png';
+import upgradeIcon from '../../assets/images/upgrade.png';
 import '../../assets/fonts/black-bones.ttf';
 import UpgradeDialog from '../UI/UpgradeDialog';
 import { preloadAnimation } from '../UI/LottieAnimation';
@@ -159,8 +160,8 @@ const Sidebar: React.FC<SidebarProps> = ({
               }
             `}>
               <div className="flex items-center">
-                <div className="w-6 h-6 rounded-full bg-primary-500 flex items-center justify-center text-white flex-shrink-0">
-                  <User size={14} />
+                <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
+                  <img src={upgradeIcon} alt="Upgrade" className="w-full h-full object-contain" />
                 </div>
                 <div className="ml-2 whitespace-nowrap">
                   <p className="text-xs font-medium text-gray-800">Pro Plan</p>

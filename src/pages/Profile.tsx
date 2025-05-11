@@ -1,7 +1,28 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { User, Mail, Phone, MapPin, Briefcase, Calendar, Edit2, Camera } from 'lucide-react';
+import { useUser } from '../context/UserContext';
 
 const Profile: React.FC = () => {
+  const { userName, userRole, profileImage, setProfileImage } = useUser();
+  const initials = userName.split(' ').map(n => n[0]).join('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setProfileImage(result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -18,15 +39,33 @@ const Profile: React.FC = () => {
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
           <div className="flex flex-col items-center">
             <div className="relative">
-              <div className="w-24 h-24 rounded-full bg-primary-100 flex items-center justify-center">
-                <span className="text-2xl font-bold text-primary-600">MS</span>
+              <div className="w-24 h-24 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden">
+                {profileImage ? (
+                  <img 
+                    src={profileImage} 
+                    alt={userName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-2xl font-bold text-primary-600">{initials}</span>
+                )}
               </div>
-              <button className="absolute bottom-0 right-0 p-1.5 bg-white rounded-full border border-gray-200 text-gray-600 hover:text-gray-800 transition-colors duration-200 shadow-sm">
+              <button 
+                onClick={handleUploadClick}
+                className="absolute bottom-0 right-0 p-1.5 bg-white rounded-full border border-gray-200 text-gray-600 hover:text-gray-800 transition-colors duration-200 shadow-sm"
+              >
                 <Camera size={14} />
               </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+              />
             </div>
-            <h2 className="mt-4 text-xl font-bold text-gray-800">Marcus Smith</h2>
-            <p className="text-sm text-gray-500">Product Manager</p>
+            <h2 className="mt-4 text-xl font-bold text-gray-800">{userName}</h2>
+            <p className="text-sm text-gray-500">{userRole}</p>
             <button className="mt-4 px-4 py-2 bg-primary-500 text-white text-xs font-medium rounded-md hover:bg-primary-600 transition-colors duration-200 flex items-center">
               <Edit2 size={14} className="mr-1.5" />
               Edit Profile
@@ -37,7 +76,7 @@ const Profile: React.FC = () => {
             <div className="space-y-4">
               <div className="flex items-center text-sm">
                 <Mail size={16} className="text-gray-400 mr-3" />
-                <span className="text-gray-600">marcus.smith@example.com</span>
+                <span className="text-gray-600">marcus.mah@example.com</span>
               </div>
               <div className="flex items-center text-sm">
                 <Phone size={16} className="text-gray-400 mr-3" />

@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Bell, Search, User, Calendar, ChevronDown, Menu, LogOut, Settings, HelpCircle, User2, Sparkles } from 'lucide-react';
 import UpgradeDialog from '../UI/UpgradeDialog';
 import { preloadAnimation } from '../UI/LottieAnimation';
 import upgradeAnimationUrl from '../../assets/animations/upgradeAnimation';
+import { useUser } from '../../context/UserContext';
 
 const Topbar: React.FC = () => {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -10,6 +12,8 @@ const Topbar: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const { userName, userRole, profileImage } = useUser();
+  const initials = userName.split(' ').map(n => n[0]).join('');
   
   const currentDate = new Date();
   const formattedDate = new Intl.DateTimeFormat('en-US', {
@@ -98,12 +102,20 @@ const Topbar: React.FC = () => {
               `}
               onClick={() => setIsProfileOpen(!isProfileOpen)}
             >
-              <div className="w-7 h-7 rounded-full bg-tertiary-500 flex items-center justify-center text-primary-600 font-bold shadow-sm">
-                <User size={16} />
+              <div className="w-7 h-7 rounded-full bg-tertiary-500 flex items-center justify-center text-primary-600 font-bold shadow-sm overflow-hidden">
+                {profileImage ? (
+                  <img 
+                    src={profileImage} 
+                    alt={userName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User size={16} />
+                )}
               </div>
               <div className="ml-2 hidden md:block">
-                <p className="text-xs font-medium text-gray-800">Marcus Mah</p>
-                <p className="text-[10px] text-gray-500">Administrator</p>
+                <p className="text-xs font-medium text-gray-800">{userName}</p>
+                <p className="text-[10px] text-gray-500">{userRole}</p>
               </div>
               <ChevronDown 
                 size={14} 
@@ -117,17 +129,34 @@ const Topbar: React.FC = () => {
             {/* Dropdown menu */}
             {isProfileOpen && (
               <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-md border border-gray-200 py-1 z-50">
-                <div className="px-4 py-2 border-b border-gray-100">
-                  <p className="text-xs font-medium text-gray-800">Marcus Mah</p>
-                  <p className="text-[10px] text-gray-500">Administrator</p>
+                <div className="px-4 py-2 border-b border-gray-100 flex items-center">
+                  <div className="w-8 h-8 rounded-full bg-tertiary-500 flex items-center justify-center text-primary-600 font-bold shadow-sm overflow-hidden mr-2">
+                    {profileImage ? (
+                      <img 
+                        src={profileImage} 
+                        alt={userName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-sm">{initials}</span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-800">{userName}</p>
+                    <p className="text-[10px] text-gray-500">{userRole}</p>
+                  </div>
                 </div>
                 
                 <ul>
                   <li>
-                    <a href="#" className="flex items-center px-4 py-2 text-xs text-gray-700 hover:bg-gray-50">
+                    <Link 
+                      to="/profile" 
+                      className="flex items-center px-4 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                      onClick={() => setIsProfileOpen(false)}
+                    >
                       <User2 size={14} className="mr-2 text-gray-500" />
                       <span>My Profile</span>
-                    </a>
+                    </Link>
                   </li>
                   <li>
                     <a href="#" className="flex items-center px-4 py-2 text-xs text-gray-700 hover:bg-gray-50">

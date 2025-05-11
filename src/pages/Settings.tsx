@@ -1,7 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Bell, Lock, Globe, Moon, Sun, User, CreditCard, Shield, Save } from 'lucide-react';
+import { useUser } from '../context/UserContext';
 
 const Settings: React.FC = () => {
+  const { userName, setUserName, userRole } = useUser();
+  const [formData, setFormData] = useState({
+    fullName: userName,
+    email: 'marcus.mah@example.com',
+    phone: '+1 (555) 123-4567'
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSave = () => {
+    setUserName(formData.fullName);
+    // Here you would typically make an API call to save the changes
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -58,7 +79,9 @@ const Settings: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  defaultValue="Marcus Smith"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:border-primary-500 transition-colors duration-200"
                 />
               </div>
@@ -69,7 +92,9 @@ const Settings: React.FC = () => {
                 </label>
                 <input
                   type="email"
-                  defaultValue="marcus.smith@example.com"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:border-primary-500 transition-colors duration-200"
                 />
               </div>
@@ -80,7 +105,9 @@ const Settings: React.FC = () => {
                 </label>
                 <input
                   type="tel"
-                  defaultValue="+1 (555) 123-4567"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:border-primary-500 transition-colors duration-200"
                 />
               </div>
@@ -128,7 +155,10 @@ const Settings: React.FC = () => {
 
           {/* Save Button */}
           <div className="flex justify-end">
-            <button className="px-4 py-2 bg-primary-500 text-white text-sm font-medium rounded-md hover:bg-primary-600 transition-colors duration-200 flex items-center">
+            <button 
+              onClick={handleSave}
+              className="px-4 py-2 bg-primary-500 text-white text-sm font-medium rounded-md hover:bg-primary-600 transition-colors duration-200 flex items-center"
+            >
               <Save size={16} className="mr-1.5" />
               Save Changes
             </button>
