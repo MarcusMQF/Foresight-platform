@@ -72,3 +72,31 @@ desktop.ini
 *.tmp
 .temp/
 .tmp/
+
+# Vite
+.vite/
+*.local
+
+# Build files
+dist-ssr/
+*.generated.ts
+
+# Config files that might contain sensitive info
+config.*.json
+*config.local.js
+*config.local.ts
+
+# Cache
+.cache/
+.mf/
+.rollup.cache/
+tsconfig.tsbuildinfo
+
+# Supabase
+/supabase
+/supabase/.temp/
+/supabase/.env
+/supabase/config.toml
+.branches
+.temp
+.lock
