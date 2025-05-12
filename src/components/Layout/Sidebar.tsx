@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { 
   Home, 
@@ -15,8 +15,6 @@ import icon from '../../assets/images/icon.png';
 import upgradeIcon from '../../assets/images/upgrade.png';
 import '../../assets/fonts/black-bones.ttf';
 import UpgradeDialog from '../UI/UpgradeDialog';
-import { preloadAnimation } from '../UI/LottieAnimation';
-import upgradeAnimationUrl from '../../assets/animations/upgradeAnimation';
 
 type SidebarProps = {
   expanded: boolean;
@@ -82,10 +80,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isMobile = width < 768;
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
   
-  // Preload the animation when sidebar mounts
-  useEffect(() => {
-    preloadAnimation(upgradeAnimationUrl);
-  }, []);
+  // Animation preloading is now handled centrally
 
   const handleMouseEnter = () => {
     if (!isMobile) {

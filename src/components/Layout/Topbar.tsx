@@ -2,8 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, Search, User, Calendar, ChevronDown, Menu, LogOut, Settings, HelpCircle, User2, Sparkles } from 'lucide-react';
 import UpgradeDialog from '../UI/UpgradeDialog';
-import { preloadAnimation } from '../UI/LottieAnimation';
-import upgradeAnimationUrl from '../../assets/animations/upgradeAnimation';
 import { useUser } from '../../context/UserContext';
 
 const Topbar: React.FC = () => {
@@ -35,11 +33,6 @@ const Topbar: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [profileRef]);
-  
-  useEffect(() => {
-    // Preload the animation when topbar mounts
-    preloadAnimation(upgradeAnimationUrl);
-  }, []);
   
   const handleUpgradeClick = () => {
     setIsUpgradeDialogOpen(true);

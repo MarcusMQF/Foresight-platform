@@ -2,7 +2,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import MainLayout from './components/Layout/MainLayout';
 import DashboardContent from './components/Dashboard/DashboardContent';
 import Documents from './pages/Documents';
-import FolderView from './pages/FolderView';
 import Calendar from './pages/Calendar';
 import Messages from './pages/Messages';
 import Profile from './pages/Profile';
@@ -19,7 +18,7 @@ function App() {
           <Routes>
             <Route path="/" element={<DashboardContent />} />
             <Route path="/documents" element={<Documents />} />
-            <Route path="/documents/:folderId" element={<FolderView />} />
+            <Route path="/documents/:folderId" element={<Documents />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/profile" element={<Profile />} />

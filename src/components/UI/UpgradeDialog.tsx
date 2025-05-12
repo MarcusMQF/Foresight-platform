@@ -1,10 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import Dialog from './Dialog';
-import LottieAnimation, { preloadAnimation } from './LottieAnimation';
-import upgradeAnimationUrl from '../../assets/animations/upgradeAnimation';
+import LottieAnimation from './LottieAnimation';
+import { UPGRADE_DIALOG_ANIMATION } from '../../utils/animationPreloader';
 
-// Preload the animation immediately when this file is imported
-preloadAnimation(upgradeAnimationUrl);
+// Preload animation will now be handled centrally by animationPreloader
 
 interface UpgradeDialogProps {
   isOpen: boolean;
@@ -12,10 +11,7 @@ interface UpgradeDialogProps {
 }
 
 const UpgradeDialog: React.FC<UpgradeDialogProps> = ({ isOpen, onClose }) => {
-  // Ensure animation is preloaded when component mounts
-  useEffect(() => {
-    preloadAnimation(upgradeAnimationUrl);
-  }, []);
+  // No need to preload here, it's handled in the main preloader
   
   return (
     <Dialog 
@@ -28,7 +24,7 @@ const UpgradeDialog: React.FC<UpgradeDialogProps> = ({ isOpen, onClose }) => {
       <div className="text-center px-1">
         <div className="mx-auto w-29 h-29 flex items-center justify-center mb-3 -mt-6">
           <LottieAnimation 
-            animationUrl={upgradeAnimationUrl} 
+            animationUrl={UPGRADE_DIALOG_ANIMATION} 
             width={150}
             height={150}
           />
