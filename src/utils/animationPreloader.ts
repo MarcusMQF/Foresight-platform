@@ -1,7 +1,7 @@
 import { preloadAnimation } from '../components/UI/LottieAnimation';
 
 // Animation URLs centralized for easy management
-export const DOT_LOADER_ANIMATION = 'https://lottie.host/716b9035-34f7-4175-827b-b0d7c5fba029/UVzLS3DVMa.json';
+export const DOT_LOADER_ANIMATION = 'https://lottie.host/68173458-1bd3-49fe-95ae-16bf49bad50f/VJ202RZw6w.json';
 export const UPGRADE_DIALOG_ANIMATION = 'https://lottie.host/20d3c861-4ac4-4b8d-a439-926406ad7932/qxhZwcIEia.json';
 
 // Add more animations here as needed

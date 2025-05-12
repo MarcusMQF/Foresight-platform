@@ -7,8 +7,9 @@ const DocumentsLoader: React.FC = () => {
     <div className="flex items-center justify-center min-h-[400px]">
       <LottieAnimation 
         animationUrl={DOT_LOADER_ANIMATION} 
-        width={60} 
-        height={60}
+        width={80} 
+        height={80} 
+        className="opacity-75"
       />
     </div>
   );
