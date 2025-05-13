@@ -144,14 +144,13 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </nav>
           
-          <div className="relative px-2 mt-auto mb-4">
+          <div className="px-2 mt-auto mb-4">
             <div className={`
-              absolute bottom-0 left-0 right-0
-              rounded-lg overflow-hidden
+              rounded-lg 
               transition-all duration-300 ease-in-out
               ${expanded 
-                ? 'opacity-100 h-[100px] p-3' 
-                : 'opacity-0 h-0 p-0'
+                ? 'opacity-100 h-[100px] mx-2' 
+                : 'opacity-0 h-0'
               }
             `}>
               <div className="flex items-center">
