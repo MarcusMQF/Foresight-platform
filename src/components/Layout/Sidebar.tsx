@@ -11,10 +11,14 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { useWindowSize } from '../../hooks/useWindowSize';
+import { useTeam } from '../../contexts/TeamContext';
 import icon from '../../assets/images/icon.png';
 import upgradeIcon from '../../assets/images/upgrade.png';
 import '../../assets/fonts/black-bones.ttf';
+import '../../assets/fonts/TypoSlab-Irregular.otf';
+import '../../assets/fonts/Chill-Chrip-Free.otf';
 import UpgradeDialog from '../UI/UpgradeDialog';
+import TeamSelector from '../UI/TeamSelector';
 
 type SidebarProps = {
   expanded: boolean;
@@ -80,8 +84,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isMobile = width < 768;
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
   
-  // Animation preloading is now handled centrally
-
+  // Use team context instead of local state
+  const { teams, currentTeam, setCurrentTeam, addTeam } = useTeam();
+  
   const handleMouseEnter = () => {
     if (!isMobile) {
       setExpanded(true);
@@ -117,13 +122,24 @@ const Sidebar: React.FC<SidebarProps> = ({
               <img src={icon} alt="Logo" className="w-8 h-8" />
               <h1 className={`
                 absolute left-[4rem]
-                font-bold text-xl tracking-wider text-primary-500 font-foresight
+                font-bold text-2xl tracking-widest text-primary-500 font-chill-chirp
                 transition-all duration-300 ease-in-out
                 ${expanded ? 'opacity-100 visible translate-x-0' : 'opacity-0 invisible -translate-x-2'}
               `}>
                 FORESIGHT
               </h1>
             </Link>
+          </div>
+
+          {/* Team Selector */}
+          <div className="px-2 py-3 border-b border-gray-100">
+            <TeamSelector
+              expanded={expanded}
+              currentTeam={currentTeam}
+              teams={teams}
+              onTeamChange={setCurrentTeam}
+              onCreateTeam={addTeam}
+            />
           </div>
 
           <nav className="flex-1 px-2 py-3 overflow-y-auto">

@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
+import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 
-type MainLayoutProps = {
-  children: React.ReactNode;
-};
-
-const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
+const MainLayout: React.FC = () => {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
   return (
@@ -27,7 +24,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         <Topbar />
         <main className="flex-1 p-6 md:p-8 overflow-auto">
           <div className="max-w-7xl mx-auto">
-            {children}
+            <Outlet />
           </div>
         </main>
       </div>
