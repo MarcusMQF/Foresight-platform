@@ -10,6 +10,9 @@ interface FileUploadDialogProps {
   isUploading: boolean;
   folderName: string;
   error?: string | null;
+  maxSizeInMB?: number;
+  maxFilesInFolder?: number;
+  onClearError?: () => void;
 }
 
 const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
@@ -18,8 +21,18 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
   onUpload,
   isUploading,
   folderName,
-  error
+  error,
+  maxSizeInMB = 5,
+  maxFilesInFolder = 20,
+  onClearError
 }) => {
+  // Create a handler for clearing errors
+  const handleClearError = () => {
+    if (onClearError) {
+      onClearError();
+    }
+  };
+
   return (
     <Transition appear show={isOpen} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={onClose}>
@@ -56,7 +69,7 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
                   </Dialog.Title>
                   <button
                     onClick={onClose}
-                    className="p-1 text-gray-400 hover:text-gray-600 rounded-md"
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded-md focus:outline-none"
                   >
                     <X size={18} />
                   </button>
@@ -64,8 +77,16 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
 
                 {error && (
                   <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-lg flex items-start">
-                    <AlertCircle size={16} className="text-red-500 mt-0.5 mr-2 flex-shrink-0" />
-                    <p className="text-sm text-red-600">{error}</p>
+                    <AlertCircle size={14} className="text-red-500 mt-0.5 mr-2 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs font-medium text-red-600 mb-1">Upload Error</p>
+                      <p className="text-xs text-red-600">{error}</p>
+                      {error.includes('duplicate') || error.includes('similar') ? (
+                        <p className="text-xs text-red-600 mt-1">
+                          Please review existing files before uploading to avoid duplicates.
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 )}
 
@@ -73,6 +94,9 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
                   <FileUpload 
                     onUpload={onUpload} 
                     isUploading={isUploading}
+                    maxSizeInMB={maxSizeInMB}
+                    maxFilesInFolder={maxFilesInFolder}
+                    onClearError={handleClearError}
                   />
                 </div>
               </Dialog.Panel>

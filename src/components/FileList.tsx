@@ -193,16 +193,16 @@ const FileList: React.FC<FileListProps> = ({ files, onDownload, onDelete, isLoad
       <table className="min-w-full divide-y divide-gray-100">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">
               Name
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">
               Size
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-[10px] font-medium text-gray-500 uppercase tracking-wider">
               Date
             </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-right text-[10px] font-medium text-gray-500 uppercase tracking-wider">
               Actions
             </th>
           </tr>
@@ -213,14 +213,14 @@ const FileList: React.FC<FileListProps> = ({ files, onDownload, onDelete, isLoad
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center">
                   {getFileIcon(file.type)}
-                  <span className="ml-3 text-sm text-gray-800">{file.name}</span>
+                  <span className="ml-3 text-xs text-gray-800">{file.name}</span>
                 </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <span className="text-sm text-gray-600">{formatFileSize(file.size)}</span>
+                <span className="text-xs text-gray-600">{formatFileSize(file.size)}</span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <span className="text-sm text-gray-600">{formatDate(file.date)}</span>
+                <span className="text-xs text-gray-600">{formatDate(file.date)}</span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right">
                 <div className="relative inline-block">

@@ -387,8 +387,8 @@ const Documents: React.FC = () => {
                           <Folder size={20} className="text-primary-500" />
                         </div>
                         <div>
-                          <h3 className="text-sm font-medium text-gray-800">{folder.name}</h3>
-                          <p className="text-xs text-gray-500">
+                          <h3 className="text-xs font-medium text-gray-800">{folder.name}</h3>
+                          <p className="text-[10px] text-gray-500">
                             {new Date(folder.date).toLocaleDateString('en-US', { 
                               month: 'short',
                               day: 'numeric',
@@ -405,7 +405,7 @@ const Documents: React.FC = () => {
                       </button>
                     </div>
                     <div className="mt-4 pt-4 border-t border-gray-100">
-                      <div className="flex items-center text-xs text-gray-500">
+                      <div className="flex items-center text-[10px] text-gray-500">
                         <FileText size={14} className="mr-1.5" />
                         <span>{folder.files} files</span>
                       </div>
@@ -427,8 +427,8 @@ const Documents: React.FC = () => {
                           <Folder size={20} className="text-primary-500" />
                         </div>
                         <div>
-                          <h3 className="text-sm font-medium text-gray-800">{folder.name}</h3>
-                          <p className="text-xs text-gray-500">
+                          <h3 className="text-xs font-medium text-gray-800">{folder.name}</h3>
+                          <p className="text-[10px] text-gray-500">
                             {new Date(folder.date).toLocaleDateString('en-US', { 
                               month: 'short',
                               day: 'numeric',
@@ -438,7 +438,7 @@ const Documents: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex items-center space-x-4">
-                        <div className="flex items-center text-xs text-gray-500">
+                        <div className="flex items-center text-[10px] text-gray-500">
                           <FileText size={14} className="mr-1.5" />
                           <span>{folder.files} files</span>
                         </div>
@@ -498,6 +498,9 @@ const Documents: React.FC = () => {
           isUploading={uploading}
           folderName={currentFolder.name}
           error={uploadError}
+          maxSizeInMB={5}
+          maxFilesInFolder={20}
+          onClearError={() => setUploadError(null)}
         />
       )}
     </div>

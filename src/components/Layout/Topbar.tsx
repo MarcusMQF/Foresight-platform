@@ -2,10 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Bell, Search, User, Calendar, ChevronDown, Menu, LogOut, Settings, HelpCircle, User2, Sparkles } from 'lucide-react';
 import UpgradeDialog from '../UI/UpgradeDialog';
+import SearchDialog from '../UI/SearchDialog';
 import { useUser } from '../../context/UserContext';
 
 const Topbar: React.FC = () => {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isSearchDialogOpen, setIsSearchDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isUpgradeDialogOpen, setIsUpgradeDialogOpen] = useState(false);
@@ -37,6 +40,20 @@ const Topbar: React.FC = () => {
   const handleUpgradeClick = () => {
     setIsUpgradeDialogOpen(true);
   };
+
+  const handleSearchClick = () => {
+    setIsSearchDialogOpen(true);
+  };
+  
+  const handleSearchClose = () => {
+    setIsSearchDialogOpen(false);
+    setSearchQuery('');
+  };
+  
+  // Update search query handler
+  const handleSearchQueryChange = (query: string) => {
+    setSearchQuery(query);
+  };
   
   return (
     <>
@@ -56,13 +73,14 @@ const Topbar: React.FC = () => {
           
           <div 
             className={`
-              flex items-center px-3 py-2 rounded-md border 
+              flex items-center px-3 py-2 rounded-md border cursor-pointer
               transition-all duration-200 ease-in-out
               ${isSearchFocused 
                 ? 'bg-white border-primary-200 shadow-sm' 
                 : 'bg-gray-100 border-transparent'
               }
             `}
+            onClick={handleSearchClick}
           >
             <Search 
               size={16} 
@@ -74,9 +92,15 @@ const Topbar: React.FC = () => {
             <input
               type="text"
               placeholder="Search..."
-              className="ml-2 bg-transparent border-none outline-none text-xs font-medium text-gray-600 w-40 md:w-56"
-              onFocus={() => setIsSearchFocused(true)}
+              className="ml-2 bg-transparent border-none outline-none text-xs font-medium text-gray-600 w-40 md:w-56 cursor-pointer"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => {
+                setIsSearchFocused(true);
+                handleSearchClick();
+              }}
               onBlur={() => setIsSearchFocused(false)}
+              readOnly
             />
           </div>
         </div>
@@ -189,6 +213,13 @@ const Topbar: React.FC = () => {
           </div>
         </div>
       </header>
+
+      {/* Search Dialog */}
+      <SearchDialog
+        isOpen={isSearchDialogOpen}
+        onClose={handleSearchClose}
+        initialQuery={searchQuery}
+      />
 
       {/* Upgrade Dialog */}
       <UpgradeDialog 
