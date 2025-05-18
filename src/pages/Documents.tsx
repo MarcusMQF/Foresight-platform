@@ -11,16 +11,35 @@ import {
   Pencil,
   Trash2,
   Upload,
-  ArrowLeft
+  ArrowLeft,
+  Download,
+  CheckSquare,
+  Square,
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import CreateFolderDialog from '../components/Dialogs/CreateFolderDialog';
 import RenameDialog from '../components/Dialogs/RenameDialog';
 import DeleteConfirmDialog from '../components/Dialogs/DeleteConfirmDialog';
 import FileUploadDialog from '../components/Dialogs/FileUploadDialog';
-import FileList from '../components/FileList';
 import DocumentsLoader from '../components/UI/DocumentsLoader';
 import { DocumentsService, FolderItem, FileItem } from '../services/documents.service';
+// JSZip for bundling multiple files
+import JSZip from 'jszip';
+// saveAs from file-saver for downloading zip files
+import { saveAs } from 'file-saver';
+
+// Format file size to human-readable format
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes';
+  
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
 
 const Documents: React.FC = () => {
   const navigate = useNavigate();
@@ -33,6 +52,11 @@ const Documents: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [currentFolder, setCurrentFolder] = useState<FolderItem | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  
+  // Bulk actions state
+  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
+  const [bulkActionLoading, setBulkActionLoading] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   
   // Document service instance
   const documentsService = new DocumentsService();
@@ -71,6 +95,9 @@ const Documents: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
+      // Clear any selected files when changing folders or navigating away
+      setSelectedFileIds([]);
+      
       try {
         if (folderId) {
           // Load files for a specific folder
@@ -190,9 +217,63 @@ const Documents: React.FC = () => {
   const handleFileDownload = async (file: FileItem) => {
     try {
       const fileUrl = await documentsService.getFileUrl(file.url);
-      window.open(fileUrl, '_blank');
+      
+      // Fetch the file as a blob to force download
+      const response = await fetch(fileUrl);
+      const blob = await response.blob();
+      
+      // Create a blob URL for the file
+      const blobUrl = URL.createObjectURL(blob);
+      
+      // Create and click an anchor element to download the file
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+      }, 100);
     } catch (error) {
       console.error('Error downloading file:', error);
+    }
+  };
+
+  // Handle bulk file downloads as zip
+  const handleBulkDownload = async () => {
+    if (selectedFileIds.length === 0) return;
+    
+    setBulkActionLoading(true);
+    try {
+      const zip = new JSZip();
+      
+      // For each selected file
+      for (const fileId of selectedFileIds) {
+        const file = files.find(f => f.id === fileId);
+        if (!file) continue;
+        
+        const fileUrl = await documentsService.getFileUrl(file.url);
+        const response = await fetch(fileUrl);
+        const blob = await response.blob();
+        
+        // Add file to zip
+        zip.file(file.name, blob);
+      }
+      
+      // Generate zip file
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      
+      // Use file-saver to save the zip
+      const folderName = currentFolder?.name || 'download';
+      saveAs(zipBlob, `${folderName}-files.zip`);
+      
+    } catch (error) {
+      console.error('Error creating zip download:', error);
+    } finally {
+      setBulkActionLoading(false);
     }
   };
 
@@ -207,8 +288,50 @@ const Documents: React.FC = () => {
     }
   };
 
+  // Handle bulk file deletion
+  const handleBulkDelete = async () => {
+    if (!currentFolder || selectedFileIds.length === 0) return;
+    
+    setBulkActionLoading(true);
+    try {
+      for (const fileId of selectedFileIds) {
+        await documentsService.deleteFile(fileId, currentFolder.id, TEMP_USER_ID);
+      }
+      // Update files state by removing deleted files
+      setFiles(prev => prev.filter(f => !selectedFileIds.includes(f.id)));
+      // Clear selection
+      setSelectedFileIds([]);
+      setShowBulkDeleteConfirm(false);
+    } catch (error) {
+      console.error('Error deleting multiple files:', error);
+    } finally {
+      setBulkActionLoading(false);
+    }
+  };
+
+  // Toggle file selection
+  const toggleFileSelection = (fileId: string) => {
+    setSelectedFileIds(prev => 
+      prev.includes(fileId)
+        ? prev.filter(id => id !== fileId)
+        : [...prev, fileId]
+    );
+  };
+
+  // Select all files
+  const selectAllFiles = () => {
+    if (selectedFileIds.length === files.length) {
+      // If all are selected, deselect all
+      setSelectedFileIds([]);
+    } else {
+      // Otherwise, select all
+      setSelectedFileIds(files.map(file => file.id));
+    }
+  };
+
   // Go back to folders view
   const handleBackToFolders = () => {
+    setSelectedFileIds([]);
     navigate('/documents');
   };
 
@@ -281,14 +404,41 @@ const Documents: React.FC = () => {
         
         <div className="flex items-center space-x-2">
           {folderId ? (
+            <>
             <button 
               onClick={() => setIsUploadDialogOpen(true)}
-              className="px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded-md hover:bg-primary-600 transition-colors duration-200 flex items-center shadow-sm"
+              className="px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded hover:bg-primary-600 transition-colors duration-200 flex items-center shadow-sm"
               disabled={loading}
             >
               <Upload size={14} className="mr-1.5" />
               <span>Upload Files</span>
             </button>
+              
+              {/* Only show bulk action buttons when at least one file is selected */}
+              {selectedFileIds.length > 0 && (
+                <>
+                  <button 
+                    onClick={handleBulkDownload}
+                    className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 text-xs font-medium rounded hover:bg-gray-50 transition-colors duration-200 flex items-center"
+                    disabled={bulkActionLoading}
+                    title="Download selected files"
+                  >
+                    <Download size={14} className="text-gray-600" />
+                    {selectedFileIds.length > 0 && <span className="ml-1.5 text-gray-600">{selectedFileIds.length}</span>}
+                  </button>
+                  
+                  <button 
+                    onClick={() => setShowBulkDeleteConfirm(true)}
+                    className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 text-xs font-medium rounded hover:bg-gray-50 transition-colors duration-200 flex items-center"
+                    disabled={bulkActionLoading}
+                    title="Delete selected files"
+                  >
+                    <Trash2 size={14} className="text-gray-600" />
+                    {selectedFileIds.length > 0 && <span className="ml-1.5 text-gray-600">{selectedFileIds.length}</span>}
+                  </button>
+                </>
+              )}
+            </>
           ) : (
             <button 
               onClick={() => setIsCreateDialogOpen(true)}
@@ -363,12 +513,110 @@ const Documents: React.FC = () => {
 
           {/* Show file list when in a folder */}
           {folderId && (
-            <FileList 
-              files={files}
-              onDownload={handleFileDownload}
-              onDelete={handleFileDelete}
-              isLoading={loading}
-            />
+            <>
+              {/* Custom FileList with checkboxes for bulk selection */}
+              <div className="bg-white rounded border border-gray-200 overflow-hidden shadow-sm">
+                <div className="p-2.5 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                                      <div className="flex items-center" style={{ paddingLeft: "20px" }}>
+                    <button 
+                      onClick={selectAllFiles}
+                      className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-primary-600 transition-colors duration-200"
+                    >
+                      {selectedFileIds.length === files.length && files.length > 0 ? (
+                        <CheckSquare size={15} className="text-primary-600" />
+                      ) : (
+                        <Square size={15} className="text-gray-400" />
+                      )}
+                    </button>
+                    <span className="ml-3 text-xs font-medium text-gray-700">
+                      {selectedFileIds.length > 0 
+                        ? `${selectedFileIds.length} selected` 
+                        : 'Select files'
+                      }
+                    </span>
+                  </div>
+                  
+                  {files.length > 0 && (
+                    <div className="pr-6 text-xs font-medium text-gray-600">
+                      {files.length} {files.length === 1 ? 'file' : 'files'}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th style={{ paddingLeft: "40px" }} className="py-2 text-left w-12"></th>
+                        <th className="py-2 text-left font-medium text-gray-500 uppercase tracking-wider pl-3">NAME</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">SIZE</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase tracking-wider">DATE</th>
+                        <th className="px-4 py-2 text-right font-medium text-gray-500 uppercase tracking-wider pr-8">ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {files.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-6 text-center text-xs text-gray-500">
+                            No files in this folder. Upload files to get started.
+                          </td>
+                        </tr>
+                      ) : (
+                        files.map((file) => (
+                          <tr key={file.id} className={`hover:bg-gray-50 ${selectedFileIds.includes(file.id) ? 'bg-gray-50' : ''}`}>
+                            <td style={{ paddingLeft: "30px" }} className="py-2.5 whitespace-nowrap">
+                              <button
+                                onClick={() => toggleFileSelection(file.id)}
+                                className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-primary-600 transition-colors duration-200"
+                              >
+                                {selectedFileIds.includes(file.id) ? (
+                                  <CheckSquare size={15} className="text-primary-600" />
+                                ) : (
+                                  <Square size={15} className="text-gray-400" />
+                                )}
+                              </button>
+                            </td>
+                            <td className="py-2.5 whitespace-nowrap pl-3">
+                              <span className="text-xs text-gray-800 font-medium truncate max-w-[200px]">{file.name}</span>
+                            </td>
+                            <td className="px-4 py-2.5 whitespace-nowrap">
+                              <span className="text-xs text-gray-500">{formatFileSize(file.size)}</span>
+                            </td>
+                            <td className="px-4 py-2.5 whitespace-nowrap">
+                              <span className="text-xs text-gray-500">
+                                {new Date(file.date).toLocaleDateString('en-US', { 
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5 whitespace-nowrap text-right pr-8">
+                              <div className="flex justify-end space-x-3">
+                                <button
+                                  onClick={() => handleFileDownload(file)}
+                                  className="p-1 text-gray-400 hover:text-primary-600 transition-colors"
+                                  title="Download"
+                                >
+                                  <Download size={15} />
+                                </button>
+                                <button
+                                  onClick={() => handleFileDelete(file)}
+                                  className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                                  title="Delete"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           )}
 
           {/* Folders Grid/List (only when not in a folder) */}
@@ -502,6 +750,55 @@ const Documents: React.FC = () => {
           maxFilesInFolder={20}
           onClearError={() => setUploadError(null)}
         />
+      )}
+
+      {/* Bulk Delete Confirmation Dialog */}
+      {showBulkDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/25 backdrop-blur-sm" />
+          
+          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-xs mx-4">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+              <h2 className="text-sm font-medium text-gray-900">Delete Multiple Files</h2>
+              <button
+                onClick={() => setShowBulkDeleteConfirm(false)}
+                className="text-gray-400 hover:text-gray-500 transition-colors p-1 rounded-full hover:bg-gray-50"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-1.5 bg-red-50 rounded-full">
+                  <AlertTriangle size={16} className="text-red-600" />
+                </div>
+                <p className="text-xs font-medium text-gray-900">Are you sure?</p>
+              </div>
+              
+              <p className="text-xs text-gray-600 mb-3">
+                This will permanently delete {selectedFileIds.length} {selectedFileIds.length === 1 ? 'file' : 'files'}. This action cannot be undone.
+              </p>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkDeleteConfirm(false)}
+                  className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 focus:outline-none transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={bulkActionLoading}
+                  className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none transition-colors"
+                >
+                  {bulkActionLoading ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

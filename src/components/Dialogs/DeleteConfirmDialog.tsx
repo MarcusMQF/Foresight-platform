@@ -41,7 +41,7 @@ export default function DeleteConfirmDialog({ isOpen, onClose, onConfirm, folder
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors"
+              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 focus:outline-none transition-colors"
             >
               Cancel
             </button>
@@ -50,7 +50,7 @@ export default function DeleteConfirmDialog({ isOpen, onClose, onConfirm, folder
                 onConfirm();
                 onClose();
               }}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-1 focus:ring-red-500 transition-colors"
+              className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none transition-colors"
             >
               Delete
             </button>
