@@ -50,7 +50,10 @@ export default function RenameDialog({ isOpen, onClose, onSubmit, currentName }:
               defaultValue={currentName}
               autoFocus
               required
-              className="w-full px-2 py-1.5 text-sm border rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500 outline-none transition-shadow placeholder-gray-400"
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none placeholder-gray-400"
+              style={{ boxShadow: 'none' }}
+              onFocus={(e) => e.target.style.border = '1px solid #F04E23'}
+              onBlur={(e) => e.target.style.border = '1px solid #e5e7eb'}
             />
           </div>
 

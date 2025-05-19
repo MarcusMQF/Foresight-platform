@@ -59,14 +59,15 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ isOpen, onClose, initialQue
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search"
-              className="w-full px-3 py-1 bg-transparent border-none outline-none text-gray-800 text-sm"
+              className="w-full px-3 py-1.5 bg-transparent border-none text-gray-800 text-sm"
+              style={{ outline: 'none', boxShadow: 'none' }}
               autoFocus
             />
             <div className="flex items-center">
               <kbd className="px-2 py-1 text-xs bg-gray-100 text-gray-500 rounded border border-gray-200">Esc</kbd>
               <button 
                 onClick={handleClose}
-                className="ml-2 p-1 rounded-full hover:bg-gray-100 text-gray-500"
+                className="ml-2 p-1 rounded-full hover:bg-gray-100 text-gray-500 transition-colors"
               >
                 <X size={18} />
               </button>
@@ -77,11 +78,11 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ isOpen, onClose, initialQue
           <div className="py-4 px-2 max-h-[70vh] overflow-y-auto">
             {searchQuery ? (
               <div className="space-y-2">
-                <div className="px-3 py-2 hover:bg-gray-50 rounded-md cursor-pointer">
+                <div className="px-3 py-2 hover:bg-gray-50 rounded-md cursor-pointer transition-colors">
                   <h3 className="text-gray-800 text-sm font-medium">Search result item</h3>
                   <p className="text-gray-500 text-xs mt-1">Description of the search result with matching content</p>
                 </div>
-                <div className="px-3 py-2 hover:bg-gray-50 rounded-md cursor-pointer">
+                <div className="px-3 py-2 hover:bg-gray-50 rounded-md cursor-pointer transition-colors">
                   <h3 className="text-gray-800 text-sm font-medium">Another search result</h3>
                   <p className="text-gray-500 text-xs mt-1">More details about this particular search result</p>
                 </div>
