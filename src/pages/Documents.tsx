@@ -24,6 +24,8 @@ import RenameDialog from '../components/Dialogs/RenameDialog';
 import DeleteConfirmDialog from '../components/Dialogs/DeleteConfirmDialog';
 import FileUploadDialog from '../components/Dialogs/FileUploadDialog';
 import DocumentsLoader from '../components/UI/DocumentsLoader';
+import ATSCheckerButton from '../components/UI/ATSCheckerButton';
+import ATSCheckerDialog from '../components/Dialogs/ATSCheckerDialog';
 import { DocumentsService, FolderItem, FileItem } from '../services/documents.service';
 // JSZip for bundling multiple files
 import JSZip from 'jszip';
@@ -57,6 +59,9 @@ const Documents: React.FC = () => {
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
   const [bulkActionLoading, setBulkActionLoading] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  
+  // ATS checker dialog state
+  const [isATSCheckerOpen, setIsATSCheckerOpen] = useState(false);
   
   // Document service instance
   const documentsService = new DocumentsService();
@@ -403,6 +408,14 @@ const Documents: React.FC = () => {
         </div>
         
         <div className="flex items-center space-x-2">
+          {/* ATS Checker Button with glowing effect - only show in file list view */}
+          {folderId && (
+            <ATSCheckerButton 
+              onClick={() => setIsATSCheckerOpen(true)} 
+              className="mr-2" 
+            />
+          )}
+
           {folderId ? (
             <>
             <button 
@@ -800,6 +813,15 @@ const Documents: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ATS Checker Dialog with selected files */}
+      <ATSCheckerDialog
+        isOpen={isATSCheckerOpen}
+        onClose={() => setIsATSCheckerOpen(false)}
+        folderFiles={selectedFileIds.length > 0 ? 
+          files.filter(file => selectedFileIds.includes(file.id)) : 
+          files}
+      />
     </div>
   );
 };
