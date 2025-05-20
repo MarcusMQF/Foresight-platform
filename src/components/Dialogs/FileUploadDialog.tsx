@@ -65,7 +65,7 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
                     as="h3"
                     className="text-lg font-medium text-gray-900"
                   >
-                    Upload Files to {folderName}
+                    Upload PDF Files to {folderName}
                   </Dialog.Title>
                   <button
                     onClick={onClose}

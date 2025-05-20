@@ -1,5 +1,5 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
+import React from 'react';
+import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { initDocumentsStorage } from './lib/supabaseInit';
@@ -9,23 +9,13 @@ import { preloadAllAnimations } from './utils/animationPreloader';
 preloadAllAnimations();
 
 // Initialize Supabase document storage
-const init = async () => {
-  try {
-    const initialized = await initDocumentsStorage();
-    if (!initialized) {
-      console.error('Failed to initialize document storage. Some features may not work properly.');
-    }
-  } catch (error) {
-    console.error('Failed to initialize document storage:', error);
-  }
-
-  // Create root and render app
-  const root = createRoot(document.getElementById('root')!);
+initDocumentsStorage().then(() => {
+  console.log('Successfully initialized Supabase documents storage');
+  // Start the app
+  const root = ReactDOM.createRoot(document.getElementById('root')!);
   root.render(
-    <StrictMode>
+    <React.StrictMode>
       <App />
-    </StrictMode>
+    </React.StrictMode>
   );
-};
-
-init();
+});

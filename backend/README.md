@@ -1,55 +1,57 @@
 # Resume ATS Checker Backend
 
-This is the backend for the Resume ATS Checker application. It provides API endpoints to analyze resumes against job descriptions for ATS compatibility.
-
-## Features
-
-- Text extraction from PDF and DOCX files
-- Keyword extraction using spaCy NLP
-- Semantic similarity calculation between resumes and job descriptions
-- Recommendations generation for resume improvement
-- Support for both single and batch resume analysis
+This is the backend service for the Resume ATS Checker application. It provides APIs for extracting text from resumes (PDF and DOCX) and analyzing them against job descriptions.
 
 ## Setup
 
-### Prerequisites
+1. Create a virtual environment:
+   ```
+   python -m venv venv
+   ```
 
-- Python 3.8+
-- pip (Python package manager)
+2. Activate the virtual environment:
+   - Windows:
+     ```
+     venv\Scripts\activate
+     ```
+   - macOS/Linux:
+     ```
+     source venv/bin/activate
+     ```
 
-### Installation
+3. Install dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
 
-1. Install the required dependencies:
+4. Download the SpaCy model:
+   ```
+   python -m spacy download en_core_web_sm
+   ```
 
-```bash
-pip install fastapi uvicorn python-multipart pdf2text python-docx spacy scikit-learn
+## Running the Server
+
+Start the FastAPI server:
+```
+uvicorn app.main:app --reload
 ```
 
-2. Download the spaCy language model:
+The API will be available at http://localhost:8000
 
-```bash
-python -m spacy download en_core_web_md
-```
+## API Documentation
 
-### Running the Server
-
-To start the API server, run:
-
-```bash
-python run_api.py
-```
-
-The server will be available at http://localhost:8000, and the API documentation can be accessed at http://localhost:8000/docs.
+Once the server is running, you can access the interactive API documentation at:
+- http://localhost:8000/docs (Swagger UI)
+- http://localhost:8000/redoc (ReDoc)
 
 ## API Endpoints
 
 - `POST /api/analyze`: Analyze a single resume against a job description
 - `POST /api/analyze-batch`: Analyze multiple resumes against a job description
 
-## Integrating with Frontend
+## Features
 
-The frontend communicates with this backend through the ResumeAnalysisService, which sends requests to these API endpoints.
-
-## Development
-
-For development, the server runs with auto-reload enabled, so any changes to the code will automatically restart the server. 
+- Text extraction from PDF and DOCX files
+- Resume analysis against job descriptions
+- Keyword matching and scoring
+- Recommendations for resume improvement 

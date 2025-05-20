@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { CheckCircle, AlertTriangle, FileText, Zap, ArrowLeft, Search, ArrowDown, ArrowUp, ExternalLink } from 'lucide-react';
+import { CheckCircle, AlertTriangle, FileText, Search, ArrowLeft, ArrowDown, ArrowUp, ExternalLink } from 'lucide-react';
 import { AnalysisResult } from '../services/resume-analysis.service';
 
 const ResumeAnalysisResults: React.FC = () => {
@@ -9,10 +9,8 @@ const ResumeAnalysisResults: React.FC = () => {
   const [results, setResults] = useState<AnalysisResult[]>([]);
   const [jobDescription, setJobDescription] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedResult, setSelectedResult] = useState<AnalysisResult | null>(null);
   const [sortBy, setSortBy] = useState<'score' | 'filename'>('score');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [viewMode, setViewMode] = useState<'table' | 'detail'>('table');
   const [folderId, setFolderId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -70,14 +68,8 @@ const ResumeAnalysisResults: React.FC = () => {
 
   // View resume details
   const viewResumeDetails = (result: AnalysisResult) => {
-    setSelectedResult(result);
-    setViewMode('detail');
-  };
-
-  // Back to results table
-  const backToResults = () => {
-    setSelectedResult(null);
-    setViewMode('table');
+    // Navigate to the detailed view page
+    navigate(`/resume-details/${encodeURIComponent(result.filename)}`);
   };
 
   // Return to files view
@@ -101,86 +93,6 @@ const ResumeAnalysisResults: React.FC = () => {
     return (
       <div className={`px-2.5 py-1 rounded-full text-xs font-medium inline-flex items-center ${bgColor}`}>
         {score}%
-      </div>
-    );
-  };
-
-  // Render resume detail view
-  const renderResumeDetails = () => {
-    if (!selectedResult) return null;
-
-    return (
-      <div className="space-y-5 p-1">
-        <div className="flex items-start space-x-3">
-          <div className="p-2 bg-orange-50 rounded">
-            <FileText size={18} className="text-orange-600" />
-          </div>
-          <div className="flex-1">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-sm font-medium text-gray-900">Resume Analysis</h3>
-                <p className="text-xs text-gray-500">{selectedResult.filename}</p>
-              </div>
-              <div className="px-3 py-1 bg-orange-50 rounded-full">
-                <span className="text-orange-700 font-medium text-xs">Score: {selectedResult.score}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="space-y-4">
-          <div>
-            <h4 className="text-xs font-medium text-gray-700 mb-2">Matched Keywords</h4>
-            <div className="flex flex-wrap gap-2">
-              {selectedResult.matchedKeywords.map((keyword, index) => (
-                <span 
-                  key={index} 
-                  className="flex items-center px-2 py-1 bg-green-50 text-green-700 text-xs rounded"
-                >
-                  <CheckCircle size={12} className="mr-1" />
-                  {keyword}
-                </span>
-              ))}
-            </div>
-          </div>
-          
-          <div>
-            <h4 className="text-xs font-medium text-gray-700 mb-2">Missing Keywords</h4>
-            <div className="flex flex-wrap gap-2">
-              {selectedResult.missingKeywords.map((keyword, index) => (
-                <span 
-                  key={index} 
-                  className="flex items-center px-2 py-1 bg-red-50 text-red-700 text-xs rounded"
-                >
-                  <AlertTriangle size={12} className="mr-1" />
-                  {keyword}
-                </span>
-              ))}
-            </div>
-          </div>
-          
-          <div>
-            <h4 className="text-xs font-medium text-gray-700 mb-2">Recommendations</h4>
-            <div className="bg-orange-50 rounded p-3 space-y-2">
-              {selectedResult.recommendations.map((recommendation, index) => (
-                <div key={index} className="flex items-start">
-                  <Zap size={14} className="text-orange-500 mt-0.5 mr-2 flex-shrink-0" />
-                  <p className="text-xs text-orange-800">{recommendation}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        
-        <div className="pt-2 flex justify-end space-x-3">
-          <button
-            onClick={backToResults}
-            className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 text-xs font-medium rounded hover:bg-gray-50 transition-colors duration-200 flex items-center"
-          >
-            <ArrowLeft size={14} className="mr-1.5" />
-            Back to Results
-          </button>
-        </div>
       </div>
     );
   };
@@ -317,23 +229,21 @@ const ResumeAnalysisResults: React.FC = () => {
     <div className="space-y-8 -ml-1">
       <div>
         <button
-          onClick={viewMode === 'detail' ? backToResults : returnToFiles}
+          onClick={returnToFiles}
           className="flex items-center text-sm text-gray-500 hover:text-gray-800 mb-2"
         >
           <ArrowLeft size={16} className="mr-1" />
-          {viewMode === 'detail' ? 'Back to Results' : 'Back to Files'}
+          Back to Files
         </button>
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-1">
-          {viewMode === 'detail' ? 'Resume Details' : 'ATS Analysis Results'}
+          ATS Analysis Results
         </h1>
         <p className="text-gray-500">
-          {viewMode === 'detail' 
-            ? 'Detailed analysis of the selected resume' 
-            : 'View and compare resume matches against the job description'}
+          View and compare resume matches against the job description
         </p>
       </div>
 
-      {viewMode === 'table' ? renderResultsTable() : renderResumeDetails()}
+      {renderResultsTable()}
     </div>
   );
 };

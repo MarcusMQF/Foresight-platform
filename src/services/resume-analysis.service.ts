@@ -6,6 +6,7 @@ export interface AnalysisResult {
   missingKeywords: string[];
   recommendations: string[];
   filename: string;
+  fileUrl?: string; // Optional file URL for PDF viewing
 }
 
 export class ResumeAnalysisService {

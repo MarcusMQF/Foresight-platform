@@ -10,6 +10,7 @@ import Settings from './pages/Settings';
 import Help from './pages/Help';
 import CreateTeam from './pages/CreateTeam';
 import ResumeAnalysisResults from './pages/ResumeAnalysisResults';
+import ResumeDetails from './pages/ResumeDetails';
 import { UserProvider } from './context/UserContext';
 import { TeamProvider } from './contexts/TeamContext';
 
@@ -25,6 +26,7 @@ function App() {
               <Route path="/documents" element={<Documents />} />
               <Route path="/documents/:folderId" element={<Documents />} />
               <Route path="/resume-analysis-results" element={<ResumeAnalysisResults />} />
+              <Route path="/resume-details/:resultId" element={<ResumeDetails />} />
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/profile" element={<Profile />} />

@@ -146,14 +146,14 @@ export class DocumentsService {
     userId: string
   ): Promise<FileItem> {
     try {
-      // Check if it's a zip file
+      // Check if it's a zip file - but we no longer allow ZIP files
       const isZipFile = file.type === 'application/zip' || 
                       file.type === 'application/x-zip-compressed' ||
                       file.name.toLowerCase().endsWith('.zip');
       
       if (isZipFile) {
-        // Handle zip file differently - extract and upload contents
-        return await this.handleZipFileUpload(file, folderId, userId);
+        // Reject ZIP files as we're only allowing PDFs
+        throw new Error('ZIP files are not supported. Please upload PDF files only.');
       }
 
       // Validate file type and size
@@ -307,7 +307,7 @@ export class DocumentsService {
         
         // Only process files with supported extensions
         const extension = relativePath.split('.').pop()?.toLowerCase();
-        const validExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'gif'];
+        const validExtensions = ['pdf'];
         if (!extension || !validExtensions.includes(extension)) return;
         
         const extractPromise = async () => {
@@ -403,13 +403,7 @@ export class DocumentsService {
    */
   private getMimeTypeFromExtension(extension: string): string {
     const mimeTypes: {[key: string]: string} = {
-      'pdf': 'application/pdf',
-      'doc': 'application/msword',
-      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'jpg': 'image/jpeg',
-      'jpeg': 'image/jpeg',
-      'png': 'image/png',
-      'gif': 'image/gif'
+      'pdf': 'application/pdf'
     };
     
     return mimeTypes[extension] || 'application/octet-stream';
@@ -489,17 +483,98 @@ export class DocumentsService {
 
   /**
    * Get a signed URL for a file
+   * @param filePath The path to the file in storage
+   * @param forceDownload Whether to force download (vs. view) the file
    */
-  async getFileUrl(filePath: string): Promise<string> {
+  async getFileUrl(filePath: string, forceDownload: boolean = false): Promise<string> {
     try {
+      // Add download=false to ensure the file is viewed instead of downloaded (unless requested)
       const { data, error } = await supabase.storage
         .from(this.BUCKET_NAME)
-        .createSignedUrl(filePath, 60 * 60); // 1 hour expiry
+        .createSignedUrl(filePath, 60 * 60, {
+          download: forceDownload,
+          transform: {
+            width: 0, // Setting width to 0 means don't resize
+            height: 0, // Setting height to 0 means don't resize
+            quality: 100 // Keep original quality
+          }
+        }); 
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating signed URL:', error);
+        throw error;
+      }
+      
+      if (!data || !data.signedUrl) {
+        console.error('No signed URL returned');
+        throw new Error('Failed to get file URL');
+      }
+      
+      console.log('Successfully generated signed URL for file:', filePath);
+      
       return data.signedUrl;
     } catch (error) {
       console.error('Error getting file URL:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get a file as a Blob to display in the browser
+   * This is especially useful for PDFs that need to be displayed in the UI
+   * @param filePath The path to the file in storage
+   * @returns A blob URL for the file
+   */
+  async getFileAsBlob(filePath: string): Promise<string> {
+    try {
+      // Get the signed URL first
+      const signedUrl = await this.getFileUrl(filePath, false);
+      
+      // Fetch the file as a blob
+      console.log('Fetching file as blob from signed URL:', signedUrl);
+      const response = await fetch(signedUrl, {
+        method: 'GET',
+        cache: 'no-store',
+        headers: {
+          'Accept': 'application/pdf, application/octet-stream, */*'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+      }
+      
+      // Get the blob
+      const blob = await response.blob();
+      
+      if (blob.size === 0) {
+        throw new Error('Received empty file');
+      }
+      
+      // Create a blob URL to display in the browser
+      let contentType = blob.type;
+      
+      // If the server didn't provide a content type or it's octet-stream,
+      // try to determine it from the file extension
+      if (!contentType || contentType === 'application/octet-stream') {
+        if (filePath.toLowerCase().endsWith('.pdf')) {
+          contentType = 'application/pdf';
+        } else if (filePath.toLowerCase().match(/\.(jpe?g)$/i)) {
+          contentType = 'image/jpeg';
+        } else if (filePath.toLowerCase().endsWith('.png')) {
+          contentType = 'image/png';
+        }
+      }
+      
+      // Create a new blob with the correct content type
+      const fileBlob = new Blob([blob], { type: contentType || 'application/octet-stream' });
+      const blobUrl = URL.createObjectURL(fileBlob);
+      
+      console.log('Created blob URL for file:', blobUrl);
+      
+      return blobUrl;
+    } catch (error) {
+      console.error('Error getting file as blob:', error);
       throw error;
     }
   }
@@ -554,5 +629,15 @@ export class DocumentsService {
       console.error('Error repairing folder file counts:', error);
       throw error;
     }
+  }
+
+  /**
+   * Get a direct download URL for a file
+   * @param filePath The path to the file in storage
+   * @returns A URL that will trigger file download
+   */
+  async getDownloadUrl(filePath: string): Promise<string> {
+    // Force download=true to ensure the file is downloaded instead of viewed
+    return this.getFileUrl(filePath, true);
   }
 } 

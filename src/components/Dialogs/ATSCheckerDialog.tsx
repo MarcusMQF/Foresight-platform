@@ -1,8 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle, AlertTriangle, FileText, Zap, Clock } from 'lucide-react';
+import { X, CheckCircle, AlertTriangle, FileText, Zap, Clock, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { ResumeAnalysisService, AnalysisResult } from '../../services/resume-analysis.service';
 import { FileItem } from '../../services/documents.service';
 import { useNavigate, useParams } from 'react-router-dom';
+import WeightSlider from '../UI/WeightSlider';
+
+// Define the weights interface
+interface AspectWeights {
+  skills: number;
+  experience: number;
+  achievements: number;
+  education: number;
+  culturalFit: number;
+}
 
 interface ATSCheckerDialogProps {
   isOpen: boolean;
@@ -25,6 +35,16 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
   const [progress, setProgress] = useState(0);
   const [estimatedTime, setEstimatedTime] = useState(0);
   const [processingStep, setProcessingStep] = useState('');
+  const [showWeightSettings, setShowWeightSettings] = useState(false);
+  
+  // Initialize weights with default values
+  const [weights, setWeights] = useState<AspectWeights>({
+    skills: 40,
+    experience: 30,
+    achievements: 20,
+    education: 5,
+    culturalFit: 5
+  });
   
   // Initialize service
   const analysisService = new ResumeAnalysisService();
@@ -48,18 +68,25 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
   useEffect(() => {
     if (analyzing) {
       const totalTime = folderFiles.length > 1 ? folderFiles.length * 500 : 3000; // Same as setTimeout in handleSubmit
+      const totalSteps = 100; // We want 100 steps for 0-100%
+      const stepTime = totalTime / totalSteps;
+      
+      // Start progress at 1% immediately for better user feedback
+      setProgress(1);
+      
       const interval = setInterval(() => {
         setProgress(prev => {
-          // Ensure we don't go past 99% until the actual processing is done
-          if (prev >= 99) {
+          // Ensure we don't go past 98% until the actual processing is done
+          // This reserves the last 2% for the final completion
+          if (prev >= 98) {
             clearInterval(interval);
-            return 99;
+            return 98;
           }
-          // Calculate step size to reach ~99% by the end of the processing time
-          const step = 99 / (totalTime / 100);
-          return Math.floor(Math.min(99, prev + step));
+          // Use a fixed increment to ensure smooth progress
+          // This will make progress more predictable and consistent
+          return Math.min(98, prev + 1);
         });
-      }, 100);
+      }, stepTime);
 
       return () => clearInterval(interval);
     }
@@ -94,6 +121,64 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
     }
   }, [analyzing, folderFiles.length, progress]);
   
+  // Handle weight change
+  const handleWeightChange = (aspect: keyof AspectWeights, value: number) => {
+    // Create a copy of current weights
+    const newWeights = { ...weights };
+    
+    // Calculate the difference between old and new value
+    const diff = value - newWeights[aspect];
+    
+    // Update the specified aspect with the new value
+    newWeights[aspect] = value;
+    
+    // Distribute the difference proportionally among other aspects
+    if (diff !== 0) {
+      // Get sum of other weights
+      const otherWeightsSum = Object.entries(newWeights)
+        .filter(([key]) => key !== aspect)
+        .reduce((sum, [, val]) => sum + val, 0);
+      
+      if (otherWeightsSum > 0) {
+        // Calculate adjustment factor
+        const adjustmentFactor = -diff / otherWeightsSum;
+        
+        // Adjust other weights proportionally
+        Object.keys(newWeights).forEach(key => {
+          if (key !== aspect) {
+            const k = key as keyof AspectWeights;
+            const adjustedWeight = Math.round(newWeights[k] * (1 + adjustmentFactor));
+            newWeights[k] = Math.max(0, Math.min(100, adjustedWeight));
+          }
+        });
+        
+        // Ensure total is exactly 100%
+        const newTotal = Object.values(newWeights).reduce((sum, val) => sum + val, 0);
+        if (newTotal !== 100) {
+          // Find the largest weight that's not the one we just changed
+          const largestKey = Object.entries(newWeights)
+            .filter(([key]) => key !== aspect)
+            .sort(([, a], [, b]) => b - a)[0][0] as keyof AspectWeights;
+          
+          newWeights[largestKey] += (100 - newTotal);
+        }
+      }
+    }
+    
+    setWeights(newWeights);
+  };
+  
+  // Reset weights to default
+  const resetWeights = () => {
+    setWeights({
+      skills: 40,
+      experience: 30,
+      achievements: 20,
+      education: 5,
+      culturalFit: 5
+    });
+  };
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -119,7 +204,8 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
               'Include python programming experience if applicable',
               'Highlight any machine learning or AI projects you\'ve worked on'
             ],
-            filename: folderFiles[0].name
+            filename: folderFiles[0].name,
+            fileUrl: folderFiles[0].url
           };
           
           // Set progress to 100% only when processing is complete
@@ -129,6 +215,7 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           setTimeout(() => {
             localStorage.setItem('resumeAnalysisResults', JSON.stringify([singleResult]));
             localStorage.setItem('jobDescription', jobDescription);
+            localStorage.setItem('analysisWeights', JSON.stringify(weights));
             // Store the current folder ID
             if (folderId) {
               localStorage.setItem('currentFolderId', folderId);
@@ -138,11 +225,13 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           }, 500);
           
           // In a real implementation:
-          // const result = await analysisService.analyzeResume(folderFiles[0], jobDescription);
+          // const result = await analysisService.analyzeResume(folderFiles[0], jobDescription, weights);
+          // result.fileUrl = folderFiles[0].url;
           // setProgress(100);
           // setTimeout(() => {
           //   localStorage.setItem('resumeAnalysisResults', JSON.stringify([result]));
           //   localStorage.setItem('jobDescription', jobDescription);
+          //   localStorage.setItem('analysisWeights', JSON.stringify(weights));
           //   if (folderId) {
           //     localStorage.setItem('currentFolderId', folderId);
           //   }
@@ -163,7 +252,8 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
               'Include python programming experience if applicable',
               'Highlight any machine learning or AI projects you\'ve worked on'
             ].slice(0, 2 + index % 2),
-            filename: file.name
+            filename: file.name,
+            fileUrl: file.url
           }));
           
           // Set progress to 100% only when processing is complete
@@ -173,6 +263,7 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           setTimeout(() => {
             localStorage.setItem('resumeAnalysisResults', JSON.stringify(mockResults));
             localStorage.setItem('jobDescription', jobDescription);
+            localStorage.setItem('analysisWeights', JSON.stringify(weights));
             // Store the current folder ID
             if (folderId) {
               localStorage.setItem('currentFolderId', folderId);
@@ -182,11 +273,15 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           }, 500);
           
           // In a real implementation:
-          // const results = await analysisService.analyzeFolderContent(folderFiles, jobDescription);
+          // const results = await analysisService.analyzeFolderContent(folderFiles, jobDescription, weights);
+          // results.forEach((result, index) => {
+          //   result.fileUrl = folderFiles[index].url;
+          // });
           // setProgress(100);
           // setTimeout(() => {
           //   localStorage.setItem('resumeAnalysisResults', JSON.stringify(results));
           //   localStorage.setItem('jobDescription', jobDescription);
+          //   localStorage.setItem('analysisWeights', JSON.stringify(weights));
           //   if (folderId) {
           //     localStorage.setItem('currentFolderId', folderId);
           //   }
@@ -206,6 +301,58 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
     setJobDescription('');
     setResults(null);
     setBatchResults(null);
+  };
+
+  // Render weight adjustment section
+  const renderWeightSettings = () => {
+    return (
+      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Settings size={14} className="text-gray-600" />
+            <h4 className="text-xs font-medium text-gray-700">Scoring Weights</h4>
+          </div>
+          <button 
+            onClick={resetWeights}
+            className="text-xs text-orange-600 hover:text-orange-800"
+          >
+            Reset to Default
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <WeightSlider 
+            label="Skills Match" 
+            value={weights.skills} 
+            onChange={(value) => handleWeightChange('skills', value)} 
+          />
+          <WeightSlider 
+            label="Experience Relevance" 
+            value={weights.experience} 
+            onChange={(value) => handleWeightChange('experience', value)} 
+          />
+          <WeightSlider 
+            label="Achievements/Impact" 
+            value={weights.achievements} 
+            onChange={(value) => handleWeightChange('achievements', value)} 
+          />
+          <WeightSlider 
+            label="Education and Certifications" 
+            value={weights.education} 
+            onChange={(value) => handleWeightChange('education', value)} 
+          />
+          <WeightSlider 
+            label="Cultural Fit/Soft Skills" 
+            value={weights.culturalFit} 
+            onChange={(value) => handleWeightChange('culturalFit', value)} 
+          />
+        </div>
+
+        <div className="mt-3 text-xs text-gray-500">
+          <p>Total weight: 100% (weights are automatically balanced)</p>
+        </div>
+      </div>
+    );
   };
   
   // Render batch results
@@ -384,6 +531,7 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
   const renderProgressIndicator = () => {
     if (!analyzing) return null;
 
+    // Calculate remaining time, ensuring it doesn't jump too much
     const remainingTime = Math.max(0, Math.ceil(estimatedTime * (100 - progress) / 100));
     
     return (
@@ -393,13 +541,13 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
             <Clock size={18} className="text-orange-500" />
             <h3 className="text-sm font-medium text-gray-900">Processing Resumes</h3>
           </div>
-          <div className="text-sm text-orange-500 font-medium">{progress}%</div>
+          <div className="text-sm text-orange-500 font-medium">{Math.min(progress, 100)}%</div>
         </div>
         
         <div className="w-full bg-gray-200 rounded-full h-2.5">
           <div 
             className="bg-orange-500 h-2.5 rounded-full transition-all duration-300" 
-            style={{ width: `${progress}%` }} 
+            style={{ width: `${Math.min(progress, 100)}%` }} 
           />
         </div>
         
@@ -424,7 +572,7 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={analyzing ? undefined : onClose} />
       
       <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <div className="flex items-center justify-between px-10 py-3 border-b border-gray-100">
           <h2 className="text-sm font-semibold text-gray-900">
             {isBatchMode ? 'Batch Resume ATS Checker' : 'Resume ATS Checker'}
           </h2>
@@ -476,6 +624,18 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
                     required
                   />
                 </div>
+                
+                <button
+                  type="button"
+                  onClick={() => setShowWeightSettings(!showWeightSettings)}
+                  className="flex items-center text-xs text-gray-600 hover:text-orange-600 transition-colors"
+                >
+                  <Settings size={14} className="mr-1" />
+                  {showWeightSettings ? 'Hide Scoring Weights' : 'Customize Scoring Weights'}
+                  {showWeightSettings ? <ChevronUp size={14} className="ml-1" /> : <ChevronDown size={14} className="ml-1" />}
+                </button>
+                
+                {showWeightSettings && renderWeightSettings()}
                 
                 <div className="flex justify-end">
                   <button

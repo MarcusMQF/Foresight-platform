@@ -13,8 +13,6 @@ import {
   Upload,
   ArrowLeft,
   Download,
-  CheckSquare,
-  Square,
   X,
   AlertTriangle
 } from 'lucide-react';
@@ -31,6 +29,7 @@ import { DocumentsService, FolderItem, FileItem } from '../services/documents.se
 import JSZip from 'jszip';
 // saveAs from file-saver for downloading zip files
 import { saveAs } from 'file-saver';
+import CustomCheckbox from '../components/UI/CustomCheckbox';
 
 // Format file size to human-readable format
 const formatFileSize = (bytes: number): string => {
@@ -75,6 +74,11 @@ const Documents: React.FC = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState<FolderItem | null>(null);
+  
+  // Single file delete confirmation
+  const [showSingleDeleteConfirm, setShowSingleDeleteConfirm] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<FileItem | null>(null);
+  const [singleDeleteLoading, setSingleDeleteLoading] = useState(false);
   
   // Dropdown state
   const [dropdownState, setDropdownState] = useState({
@@ -283,14 +287,9 @@ const Documents: React.FC = () => {
   };
 
   // Handle file delete
-  const handleFileDelete = async (file: FileItem) => {
-    if (!currentFolder) return;
-    try {
-      await documentsService.deleteFile(file.id, currentFolder.id, TEMP_USER_ID);
-      setFiles(prev => prev.filter(f => f.id !== file.id));
-    } catch (error) {
-      console.error('Error deleting file:', error);
-    }
+  const handleFileDelete = (file: FileItem) => {
+    setShowSingleDeleteConfirm(true);
+    setFileToDelete(file);
   };
 
   // Handle bulk file deletion
@@ -530,17 +529,11 @@ const Documents: React.FC = () => {
               {/* Custom FileList with checkboxes for bulk selection */}
               <div className="bg-white rounded border border-gray-200 overflow-hidden shadow-sm">
                 <div className="p-2.5 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                                      <div className="flex items-center" style={{ paddingLeft: "20px" }}>
-                    <button 
-                      onClick={selectAllFiles}
-                      className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-primary-600 transition-colors duration-200"
-                    >
-                      {selectedFileIds.length === files.length && files.length > 0 ? (
-                        <CheckSquare size={15} className="text-primary-600" />
-                      ) : (
-                        <Square size={15} className="text-gray-400" />
-                      )}
-                    </button>
+                  <div className="flex items-center" style={{ paddingLeft: "20px" }}>
+                    <CustomCheckbox 
+                      checked={selectedFileIds.length === files.length && files.length > 0}
+                      onChange={selectAllFiles}
+                    />
                     <span className="ml-3 text-xs font-medium text-gray-700">
                       {selectedFileIds.length > 0 
                         ? `${selectedFileIds.length} selected` 
@@ -578,16 +571,10 @@ const Documents: React.FC = () => {
                         files.map((file) => (
                           <tr key={file.id} className={`hover:bg-gray-50 ${selectedFileIds.includes(file.id) ? 'bg-gray-50' : ''}`}>
                             <td style={{ paddingLeft: "30px" }} className="py-2.5 whitespace-nowrap">
-                              <button
-                                onClick={() => toggleFileSelection(file.id)}
-                                className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-primary-600 transition-colors duration-200"
-                              >
-                                {selectedFileIds.includes(file.id) ? (
-                                  <CheckSquare size={15} className="text-primary-600" />
-                                ) : (
-                                  <Square size={15} className="text-gray-400" />
-                                )}
-                              </button>
+                              <CustomCheckbox
+                                checked={selectedFileIds.includes(file.id)}
+                                onChange={() => toggleFileSelection(file.id)}
+                              />
                             </td>
                             <td className="py-2.5 whitespace-nowrap pl-3">
                               <span className="text-xs text-gray-800 font-medium truncate max-w-[200px]">{file.name}</span>
@@ -807,6 +794,71 @@ const Documents: React.FC = () => {
                   className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none transition-colors"
                 >
                   {bulkActionLoading ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Single File Delete Confirmation Dialog */}
+      {showSingleDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/25 backdrop-blur-sm" />
+          
+          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-xs mx-4">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
+              <h2 className="text-sm font-medium text-gray-900">Delete File</h2>
+              <button
+                onClick={() => setShowSingleDeleteConfirm(false)}
+                className="text-gray-400 hover:text-gray-500 transition-colors p-1 rounded-full hover:bg-gray-50"
+                disabled={singleDeleteLoading}
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div className="p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-1.5 bg-red-50 rounded-full">
+                  <AlertTriangle size={16} className="text-red-600" />
+                </div>
+                <p className="text-xs font-medium text-gray-900">Are you sure?</p>
+              </div>
+              
+              <p className="text-xs text-gray-600 mb-3">
+                This will permanently delete the file "{fileToDelete?.name}". This action cannot be undone.
+              </p>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSingleDeleteConfirm(false)}
+                  className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 focus:outline-none transition-colors"
+                  disabled={singleDeleteLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (fileToDelete) {
+                      setSingleDeleteLoading(true);
+                      try {
+                        await documentsService.deleteFile(fileToDelete.id, currentFolder!.id, TEMP_USER_ID);
+                        setFiles(prev => prev.filter(f => f.id !== fileToDelete.id));
+                      } catch (error) {
+                        console.error('Error deleting file:', error);
+                      } finally {
+                        setSingleDeleteLoading(false);
+                        setFileToDelete(null);
+                        setShowSingleDeleteConfirm(false);
+                      }
+                    }
+                  }}
+                  disabled={singleDeleteLoading}
+                  className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none transition-colors"
+                >
+                  {singleDeleteLoading ? 'Deleting...' : 'Delete'}
                 </button>
               </div>
             </div>

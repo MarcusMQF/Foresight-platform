@@ -14,7 +14,7 @@ interface FileUploadProps {
 const FileUpload: React.FC<FileUploadProps> = ({ 
   onUpload, 
   isUploading, 
-  accept = ".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.zip",
+  accept = ".pdf",
   multiple = true,
   maxSizeInMB = 5,
   maxFilesInFolder = 20,
@@ -268,12 +268,12 @@ const FileUpload: React.FC<FileUploadProps> = ({
         return;
       }
       
-      // Validate file type by extension
+      // Validate file type by extension - only allow PDF files
       const extension = file.name.split('.').pop()?.toLowerCase();
-      const validExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'gif', 'zip'];
+      const validExtensions = ['pdf'];
       
       if (!extension || !validExtensions.includes(extension)) {
-        errors[file.name] = 'File type not supported';
+        errors[file.name] = 'Only PDF files are supported';
         return;
       }
       
@@ -343,7 +343,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
       >
         <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
         <p className="text-sm text-gray-600 mb-2">
-          Drag and drop files here
+          Drag and drop PDF files here
         </p>
         <div className="flex justify-center gap-3 mb-2">
           <button
@@ -366,7 +366,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           </button>
         </div>
         <p className="text-xs text-gray-500 mb-1">
-          Supported files: PDF, Word, images, ZIP
+          Supported files: PDF only
         </p>
         <p className="text-xs text-gray-500">
           Maximum file size: {maxSizeInMB}MB

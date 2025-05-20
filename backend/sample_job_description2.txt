@@ -1,0 +1,6 @@
+What Essential Skills You Will Need
+
+Only for candidates who are available to start in July 2025
+Interested in Flutter development and Dart programming.
+Experience with mobile development frameworks and best practices.
+Experience with third-party libraries and APIs.

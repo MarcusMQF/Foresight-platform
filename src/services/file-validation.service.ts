@@ -15,14 +15,7 @@ export class FileValidationService {
   private defaultOptions: FileValidationOptions = {
     maxSizeInMB: 5, // 5MB default max size
     allowedTypes: [
-      'application/pdf', 
-      'application/msword', 
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'application/zip',
-      'application/x-zip-compressed'
+      'application/pdf'
     ]
   };
 
@@ -45,12 +38,12 @@ export class FileValidationService {
       // If it's an unknown type, check by extension
       if (!file.type || file.type === 'application/octet-stream') {
         const extension = file.name.split('.').pop()?.toLowerCase();
-        const validExtensions = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'gif', 'zip'];
+        const validExtensions = ['pdf'];
         
         if (!extension || !validExtensions.includes(extension)) {
           return {
             valid: false,
-            error: 'File type not allowed. Please upload a supported file type.'
+            error: 'Only PDF files are supported. Please upload a PDF file.'
           };
         }
       } 
@@ -58,7 +51,7 @@ export class FileValidationService {
       else if (!opts.allowedTypes.includes(file.type)) {
         return {
           valid: false,
-          error: 'File type not allowed. Please upload a supported file type.'
+          error: 'Only PDF files are supported. Please upload a PDF file.'
         };
       }
     }
