@@ -30,7 +30,6 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
   const [jobDescription, setJobDescription] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
   const [results, setResults] = useState<AnalysisResult | null>(null);
-  const [batchResults, setBatchResults] = useState<AnalysisResult[] | null>(null);
   const [isBatchMode, setIsBatchMode] = useState(false);
   const [progress, setProgress] = useState(0);
   const [estimatedTime, setEstimatedTime] = useState(0);
@@ -51,7 +50,6 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
     if (isOpen) {
       setJobDescription('');
       setResults(null);
-      setBatchResults(null);
       setAnalyzing(false);
       setProgress(0);
       setProcessingStep('');
@@ -210,13 +208,16 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           
           // Small delay to show 100% before navigating
           setTimeout(() => {
+            // Store the results in localStorage
             localStorage.setItem('resumeAnalysisResults', JSON.stringify([singleResult]));
             localStorage.setItem('jobDescription', jobDescription);
             localStorage.setItem('analysisWeights', JSON.stringify(weights));
+            
             // Store the current folder ID
             if (folderId) {
               localStorage.setItem('currentFolderId', folderId);
             }
+            
             onClose();
             navigate('/resume-analysis-results');
           }, 500);
@@ -248,7 +249,7 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
               'Add more specific details about your data analysis skills',
               'Include python programming experience if applicable',
               'Highlight any machine learning or AI projects you\'ve worked on'
-            ].slice(0, 2 + index % 2),
+            ],
             filename: file.name,
             fileUrl: file.url
           }));
@@ -256,48 +257,52 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           // Set progress to 100% only when processing is complete
           setProgress(100);
           
+          // Store the results in localStorage
+          localStorage.setItem('resumeAnalysisResults', JSON.stringify(mockResults));
+          localStorage.setItem('jobDescription', jobDescription);
+          localStorage.setItem('analysisWeights', JSON.stringify(weights));
+          
+          // Store the current folder ID
+          if (folderId) {
+            localStorage.setItem('currentFolderId', folderId);
+          }
+          
           // Small delay to show 100% before navigating
           setTimeout(() => {
-            localStorage.setItem('resumeAnalysisResults', JSON.stringify(mockResults));
-            localStorage.setItem('jobDescription', jobDescription);
-            localStorage.setItem('analysisWeights', JSON.stringify(weights));
-            // Store the current folder ID
-            if (folderId) {
-              localStorage.setItem('currentFolderId', folderId);
-            }
             onClose();
             navigate('/resume-analysis-results');
           }, 500);
           
           // In a real implementation:
-          // const results = await analysisService.analyzeFolderContent(folderFiles, jobDescription, weights);
-          // results.forEach((result, index) => {
-          //   result.fileUrl = folderFiles[index].url;
-          // });
+          // const results = await Promise.all(
+          //   folderFiles.map(file => analysisService.analyzeResume(file, jobDescription, weights))
+          // );
+          // const resultsWithUrls = results.map((result, index) => ({
+          //   ...result,
+          //   fileUrl: folderFiles[index].url
+          // }));
           // setProgress(100);
+          // localStorage.setItem('resumeAnalysisResults', JSON.stringify(resultsWithUrls));
+          // localStorage.setItem('jobDescription', jobDescription);
+          // localStorage.setItem('analysisWeights', JSON.stringify(weights));
+          // if (folderId) {
+          //   localStorage.setItem('currentFolderId', folderId);
+          // }
           // setTimeout(() => {
-          //   localStorage.setItem('resumeAnalysisResults', JSON.stringify(results));
-          //   localStorage.setItem('jobDescription', jobDescription);
-          //   localStorage.setItem('analysisWeights', JSON.stringify(weights));
-          //   if (folderId) {
-          //     localStorage.setItem('currentFolderId', folderId);
-          //   }
           //   onClose();
           //   navigate('/resume-analysis-results');
           // }, 500);
-        }, folderFiles.length * 500); // Longer delay for multiple files
+        }, folderFiles.length * 500);
       }
     } catch (error) {
-      console.error('Analysis error:', error);
+      console.error('Error analyzing resumes:', error);
       setAnalyzing(false);
-      setProgress(0);
     }
   };
   
   const resetForm = () => {
     setJobDescription('');
     setResults(null);
-    setBatchResults(null);
   };
 
   // Render weight adjustment section
@@ -352,93 +357,6 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
     );
   };
   
-  // Render batch results
-  const renderBatchResults = () => {
-    if (!batchResults) return null;
-    
-    // Find top match
-    const topMatch = batchResults.reduce((prev, current) => 
-      (current.score > prev.score) ? current : prev, batchResults[0]);
-    
-    return (
-      <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <h3 className="text-xs font-medium text-gray-900">Batch Analysis Results</h3>
-          <div className="px-2 py-0.5 bg-orange-50 text-orange-700 text-xs rounded-full">
-            {batchResults.length} files analyzed
-          </div>
-        </div>
-        
-        <div className="p-2 bg-green-50 rounded-lg">
-          <div className="flex items-center">
-            <div className="p-1.5 bg-green-100 rounded-full mr-2">
-              <FileText size={14} className="text-green-600" />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-green-800">Best Match</p>
-              <p className="text-xs font-semibold text-green-900">{topMatch.filename}</p>
-              <p className="text-xs text-green-700">Score: {topMatch.score}%</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="border border-gray-200 rounded-lg overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File</th>
-                <th className="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
-                <th className="px-3 py-1.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {batchResults.sort((a, b) => b.score - a.score).map((result, index) => (
-                <tr key={index} className={result.filename === topMatch.filename ? 'bg-green-50' : ''}>
-                  <td className="px-3 py-1.5 whitespace-nowrap text-xs text-gray-800">{result.filename}</td>
-                  <td className="px-3 py-1.5 whitespace-nowrap">
-                    <div className={`px-1.5 py-0.5 rounded-full text-xs font-medium inline-flex items-center ${
-                      result.score >= 80 ? 'bg-green-50 text-green-700' : 
-                      result.score >= 60 ? 'bg-yellow-50 text-yellow-700' : 
-                      'bg-red-50 text-red-700'
-                    }`}>
-                      {result.score}%
-                    </div>
-                  </td>
-                  <td className="px-3 py-1.5 whitespace-nowrap text-xs text-right">
-                    <button 
-                      className="text-orange-600 hover:text-orange-800 font-medium"
-                      onClick={() => {
-                        setResults(result);
-                        setBatchResults(null);
-                      }}
-                    >
-                      View Details
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        <div className="pt-1 flex justify-end space-x-2">
-          <button
-            onClick={resetForm}
-            className="px-2.5 py-1 bg-white border border-gray-200 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 transition-colors duration-200"
-          >
-            Check Different Job
-          </button>
-          <button
-            onClick={onClose}
-            className="px-2.5 py-1 bg-orange-500 text-white text-xs font-medium rounded-md hover:bg-orange-600 transition-colors duration-200"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   // Render resume analysis results
   const renderResumeAnalysis = () => {
     if (!results) return null;
@@ -549,8 +467,8 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
         </div>
         
         <div className="flex justify-between items-center text-xs text-gray-500">
-          <div>{processingStep}</div>
-          <div>Est. {remainingTime}s remaining</div>
+          <div>{progress === 100 ? 'Finalizing results' : processingStep}</div>
+          <div>Est. {progress === 100 ? '0s' : `${remainingTime}s`} remaining</div>
         </div>
 
         <p className="text-xs text-gray-600 mt-2">
@@ -569,7 +487,7 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={analyzing ? undefined : onClose} />
       
       <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[85vh] overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
+        <div className={`flex items-center px-4 py-2 border-b border-gray-100 ${analyzing && isBatchMode ? 'justify-between' : 'justify-between'}`}>
           <h2 className="text-sm font-semibold text-gray-900">
             {isBatchMode ? 'Batch Resume ATS Checker' : 'Resume ATS Checker'}
           </h2>
@@ -588,8 +506,6 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
             renderProgressIndicator()
           ) : results ? (
             renderResumeAnalysis()
-          ) : batchResults ? (
-            renderBatchResults()
           ) : (
             <div className="space-y-3">
               <div className="flex items-center justify-between">

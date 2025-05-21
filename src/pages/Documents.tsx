@@ -14,7 +14,8 @@ import {
   ArrowLeft,
   Download,
   X,
-  AlertTriangle
+  AlertTriangle,
+  BarChart2
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import CreateFolderDialog from '../components/Dialogs/CreateFolderDialog';
@@ -61,6 +62,9 @@ const Documents: React.FC = () => {
   
   // ATS checker dialog state
   const [isATSCheckerOpen, setIsATSCheckerOpen] = useState(false);
+  
+  // Check if analysis results exist for current folder
+  const [hasAnalysisResults, setHasAnalysisResults] = useState(false);
   
   // Document service instance
   const documentsService = new DocumentsService();
@@ -122,6 +126,15 @@ const Documents: React.FC = () => {
             
           if (error) throw error;
           setCurrentFolder(data);
+          
+          // Check if analysis results exist for this folder
+          const storedFolderId = localStorage.getItem('currentFolderId');
+          const storedResults = localStorage.getItem('resumeAnalysisResults');
+          if (storedFolderId === folderId && storedResults) {
+            setHasAnalysisResults(true);
+          } else {
+            setHasAnalysisResults(false);
+          }
         } else {
           // Load all folders for the user
           const userFolders = await documentsService.getFolders(TEMP_USER_ID);
@@ -367,6 +380,11 @@ const Documents: React.FC = () => {
     navigate('/documents');
   };
 
+  // Handle view analysis results
+  const handleViewAnalysisResults = () => {
+    navigate('/resume-analysis-results');
+  };
+
   // Render folder dropdown menu
   const renderFolderMenu = () => {
     if (!dropdownState.isOpen) return null;
@@ -434,13 +452,23 @@ const Documents: React.FC = () => {
           )}
         </div>
         
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-4">
           {/* ATS Checker Button with glowing effect - only show in file list view */}
           {folderId && (
-            <ATSCheckerButton 
-              onClick={() => setIsATSCheckerOpen(true)} 
-              className="mr-2" 
-            />
+            <>
+              <ATSCheckerButton 
+                onClick={() => setIsATSCheckerOpen(true)} 
+              />
+              
+              {/* Analyze Results button - always show in folder view */}
+              <button
+                onClick={handleViewAnalysisResults}
+                className="px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded hover:bg-primary-600 transition-colors duration-200 flex items-center shadow-sm"
+              >
+                <BarChart2 size={14} className="mr-1.5" />
+                Analyze Results
+              </button>
+            </>
           )}
 
           {folderId ? (

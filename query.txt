@@ -446,6 +446,8 @@ CREATE POLICY "Allow public delete"
 ON storage.objects FOR DELETE
 USING (bucket_id = 'documents');
 
+
+
 -- Create tables for job descriptions and analysis results
 CREATE OR REPLACE FUNCTION public.create_job_description_table()
 RETURNS void AS $$
@@ -551,9 +553,25 @@ RETURNS UUID AS $$
 DECLARE
   v_job_description_id UUID;
 BEGIN
-  INSERT INTO public.job_descriptions (description, folder_id, "userId")
-  VALUES (p_description, p_folder_id, p_user_id)
-  RETURNING id INTO v_job_description_id;
+  -- Check if a job description already exists for this folder
+  SELECT id INTO v_job_description_id 
+  FROM public.job_descriptions 
+  WHERE folder_id = p_folder_id AND "userId" = p_user_id
+  ORDER BY created_at DESC
+  LIMIT 1;
+  
+  -- If it exists, update it
+  IF v_job_description_id IS NOT NULL THEN
+    UPDATE public.job_descriptions
+    SET description = p_description,
+        created_at = NOW()
+    WHERE id = v_job_description_id;
+  -- Otherwise, insert a new record
+  ELSE
+    INSERT INTO public.job_descriptions (description, folder_id, "userId")
+    VALUES (p_description, p_folder_id, p_user_id)
+    RETURNING id INTO v_job_description_id;
+  END IF;
   
   RETURN v_job_description_id;
 END;
@@ -619,7 +637,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Function to get the latest job description for a folder
-CREATE OR REPLACE FUNCTION public.get_latest_job_description(p_folder_id UUID)
+CREATE OR REPLACE FUNCTION public.get_latest_job_description(
+  p_folder_id UUID,
+  p_user_id TEXT
+)
 RETURNS TABLE (
   id UUID,
   description TEXT,
@@ -629,7 +650,7 @@ BEGIN
   RETURN QUERY
   SELECT jd.id, jd.description, jd.created_at
   FROM public.job_descriptions jd
-  WHERE jd.folder_id = p_folder_id
+  WHERE jd.folder_id = p_folder_id AND jd."userId" = p_user_id
   ORDER BY jd.created_at DESC
   LIMIT 1;
 END;
@@ -711,7 +732,7 @@ LEFT JOIN
 -- );
 
 -- 3. Get the latest job description for a folder
--- SELECT * FROM get_latest_job_description('folder-uuid');
+-- SELECT * FROM get_latest_job_description('folder-uuid', 'user-id');
 
 -- 4. Get analysis results for files in a folder
 -- SELECT * FROM get_folder_analysis_results('folder-uuid');

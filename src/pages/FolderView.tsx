@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
-import { Upload, X, CheckCircle, AlertCircle, Clock, FileText } from 'lucide-react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Upload, X, CheckCircle, AlertCircle, Clock, FileText, BarChart2, Zap } from 'lucide-react';
 
 interface FileStatus {
   id: string;
@@ -11,8 +11,21 @@ interface FileStatus {
 
 const FolderView: React.FC = () => {
   const { folderId } = useParams();
+  const navigate = useNavigate();
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<FileStatus[]>([]);
+  const [hasAnalysisResults, setHasAnalysisResults] = useState(false);
+  const [isATSCheckerOpen, setIsATSCheckerOpen] = useState(false);
+
+  useEffect(() => {
+    // Check if there are analysis results for this folder
+    const storedFolderId = localStorage.getItem('currentFolderId');
+    const storedResults = localStorage.getItem('resumeAnalysisResults');
+    
+    if (storedFolderId === folderId && storedResults) {
+      setHasAnalysisResults(true);
+    }
+  }, [folderId]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -95,15 +108,50 @@ const FolderView: React.FC = () => {
     }
   };
 
+  const handleViewAnalysisResults = () => {
+    navigate('/resume-analysis-results');
+  };
+  
+  const handleATSCheck = () => {
+    setIsATSCheckerOpen(true);
+    // In a real implementation, this would open the ATS Checker dialog
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-1">
             {folderId}
           </h1>
           <p className="text-gray-500">Upload and manage resumes for this hiring phase.</p>
+        </div>
+        
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={handleATSCheck}
+            className="flex items-center px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors duration-200"
+          >
+            <Zap size={14} className="mr-1.5" />
+            ATS Checker
+          </button>
+          
+          <button
+            onClick={handleViewAnalysisResults}
+            className="flex items-center px-3 py-1.5 bg-primary-500 text-white rounded hover:bg-primary-600 transition-colors duration-200"
+          >
+            <BarChart2 size={14} className="mr-1.5" />
+            Analyze Results
+          </button>
+          
+          <button
+            onClick={handleFileClick}
+            className="flex items-center px-3 py-1.5 bg-primary-500 text-white rounded hover:bg-primary-600 transition-colors duration-200"
+          >
+            <Upload size={14} className="mr-1.5" />
+            Upload Files
+          </button>
         </div>
       </div>
 

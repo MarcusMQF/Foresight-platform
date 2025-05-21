@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { CheckCircle, AlertTriangle, FileText, Search, ArrowLeft, ArrowDown, ArrowUp, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { FileText, Search, ArrowLeft, ArrowDown, ArrowUp, ExternalLink } from 'lucide-react';
 import { AnalysisResult } from '../services/resume-analysis.service';
 
 const ResumeAnalysisResults: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [results, setResults] = useState<AnalysisResult[]>([]);
-  const [jobDescription, setJobDescription] = useState('');
+  const [, setJobDescription] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'score' | 'filename'>('score');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
