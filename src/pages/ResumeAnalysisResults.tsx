@@ -91,7 +91,7 @@ const ResumeAnalysisResults: React.FC = () => {
     }
     
     return (
-      <div className={`px-2.5 py-1 rounded-full text-xs font-medium inline-flex items-center ${bgColor}`}>
+      <div className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-medium ${bgColor}`}>
         {score}%
       </div>
     );
@@ -109,7 +109,7 @@ const ResumeAnalysisResults: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search resumes..."
-              className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded text-sm focus:outline-none focus:border-primary-500 transition-colors duration-200"
+              className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded text-xs focus:outline-none focus:border-primary-500 transition-colors duration-200"
             />
           </div>
           
@@ -126,7 +126,7 @@ const ResumeAnalysisResults: React.FC = () => {
         
         <div className="bg-white rounded border border-gray-200 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-gray-200 bg-gray-50">
-            <h3 className="text-sm font-medium text-gray-800">Resume Analysis Results</h3>
+            <h3 className="text-xs font-medium text-gray-800">Resume Analysis Results</h3>
             <p className="text-xs text-gray-500 mt-1">
               {results.length} {results.length === 1 ? 'resume' : 'resumes'} analyzed against the job description
             </p>
@@ -141,7 +141,7 @@ const ResumeAnalysisResults: React.FC = () => {
                       className="flex items-center focus:outline-none"
                       onClick={() => toggleSort('filename')}
                     >
-                      Resume
+                      RESUME
                       {sortBy === 'filename' && (
                         sortOrder === 'asc' ? 
                           <ArrowUp size={14} className="ml-1" /> : 
@@ -149,12 +149,12 @@ const ResumeAnalysisResults: React.FC = () => {
                       )}
                     </button>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="pr-9 pl-7 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                     <button 
-                      className="flex items-center focus:outline-none"
+                      className="flex items-center justify-center mx-auto"
                       onClick={() => toggleSort('score')}
                     >
-                      Match Score
+                      MATCH SCORE
                       {sortBy === 'score' && (
                         sortOrder === 'asc' ? 
                           <ArrowUp size={14} className="ml-1" /> : 
@@ -165,15 +165,15 @@ const ResumeAnalysisResults: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Matched Keywords
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <div className="flex justify-end pr-[30px]">ACTIONS</div>
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {sortedResults.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={4} className="px-6 py-4 text-center text-xs text-gray-500">
                       No results found
                     </td>
                   </tr>
@@ -185,10 +185,10 @@ const ResumeAnalysisResults: React.FC = () => {
                           <div className="p-1.5 bg-gray-100 rounded mr-3">
                             <FileText size={16} className="text-gray-500" />
                           </div>
-                          <div className="text-sm text-gray-900">{result.filename}</div>
+                          <div className="text-xs text-gray-900">{result.filename}</div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="pr-9 pl-3 py-4 whitespace-nowrap text-center">
                         {renderScoreBadge(result.score)}
                       </td>
                       <td className="px-6 py-4">
@@ -205,10 +205,10 @@ const ResumeAnalysisResults: React.FC = () => {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
                         <button 
                           onClick={() => viewResumeDetails(result)}
-                          className="text-orange-600 hover:text-orange-800 flex items-center justify-end"
+                          className="text-orange-600 hover:text-orange-800 inline-flex items-center text-xs font-medium"
                         >
                           View Details
                           <ExternalLink size={14} className="ml-1" />
