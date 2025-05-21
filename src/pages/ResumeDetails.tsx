@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { CheckCircle, AlertTriangle, FileText, Zap, ArrowLeft, Maximize, Minimize, RefreshCw, Download } from 'lucide-react';
 import { AnalysisResult } from '../services/resume-analysis.service';
 import { DocumentsService } from '../services/documents.service';
@@ -11,12 +11,11 @@ console.log('ResumeDetails component loaded with SimplePDFViewer');
 
 const ResumeDetails: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { resultId } = useParams<{ resultId: string }>();
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [scale, setScale] = useState(1.2);
+  const [] = useState(1.2);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -152,11 +151,6 @@ const ResumeDetails: React.FC = () => {
     }
   };
 
-  // Handle document load success - just keeping for UI updates, not using numPages
-  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    console.log('PDF loaded successfully with numPages:', numPages);
-  };
-
   // Toggle fullscreen mode
   const toggleFullScreen = () => {
     setIsFullScreen(!isFullScreen);
@@ -165,22 +159,6 @@ const ResumeDetails: React.FC = () => {
   // Return to results
   const backToResults = () => {
     navigate('/resume-analysis-results');
-  };
-
-  // Render score badge with appropriate color
-  const renderScoreBadge = (score: number) => {
-    let bgColor = 'bg-red-50 text-red-700';
-    if (score >= 80) {
-      bgColor = 'bg-green-50 text-green-700';
-    } else if (score >= 60) {
-      bgColor = 'bg-yellow-50 text-yellow-700';
-    }
-    
-    return (
-      <div className={`px-2.5 py-1 rounded-full text-xs font-medium inline-flex items-center ${bgColor}`}>
-        {score}%
-      </div>
-    );
   };
 
   // Add a retry button for the PDF viewer

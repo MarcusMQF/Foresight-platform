@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, AlertTriangle, FileText, Zap, Clock, Settings, ChevronDown, ChevronUp } from 'lucide-react';
-import { ResumeAnalysisService, AnalysisResult } from '../../services/resume-analysis.service';
+import { AnalysisResult } from '../../services/resume-analysis.service';
 import { FileItem } from '../../services/documents.service';
 import { useNavigate, useParams } from 'react-router-dom';
 import WeightSlider from '../UI/WeightSlider';
@@ -45,9 +45,6 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
     education: 5,
     culturalFit: 5
   });
-  
-  // Initialize service
-  const analysisService = new ResumeAnalysisService();
   
   // Reset state when dialog is opened
   useEffect(() => {

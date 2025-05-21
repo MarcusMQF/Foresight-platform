@@ -1,0 +1,720 @@
+I want, once user analyze the report all or some resume in a specific folder, it will appear a Analyze result in file list of a folder page, as the analyzed file will be saved once user analyze before, and can go back to check the files that already been analyzed. what i mean is just normal as usual, just got the table of analyzed file scoring will not dissapear when back to files.
+so here is my current query and table editor. You need to consider my current supabase existed query and heres my current query sql editor:
+Folder and File Management:
+-- First create the folders table function
+CREATE OR REPLACE FUNCTION public.create_folders_table()
+RETURNS void AS $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_tables WHERE tablename = 'folders') THEN
+    CREATE TABLE public.folders (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      name TEXT NOT NULL,
+      date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      files INTEGER DEFAULT 0,
+      "userId" TEXT NOT NULL
+    );
+
+    -- Add RLS policies
+    ALTER TABLE public.folders ENABLE ROW LEVEL SECURITY;
+
+    -- Policy for selecting records
+    CREATE POLICY select_folders ON public.folders FOR SELECT USING (true);
+
+    -- Policy for inserting records
+    CREATE POLICY insert_folders ON public.folders FOR INSERT WITH CHECK (true);
+
+    -- Policy for updating records
+    CREATE POLICY update_folders ON public.folders FOR UPDATE USING (true);
+
+    -- Policy for deleting records
+    CREATE POLICY delete_folders ON public.folders FOR DELETE USING (true);
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+Files folder creation function:
+-- Then create the files table function
+CREATE OR REPLACE FUNCTION public.create_files_table()
+RETURNS void AS $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_tables WHERE tablename = 'files') THEN
+    CREATE TABLE public.files (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      name TEXT NOT NULL,
+      "folderId" UUID NOT NULL REFERENCES public.folders(id) ON DELETE CASCADE,
+      size INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      url TEXT NOT NULL,
+      date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      "userId" TEXT NOT NULL
+    );
+
+    -- Add RLS policies
+    ALTER TABLE public.files ENABLE ROW LEVEL SECURITY;
+
+    -- Policy for selecting records
+    CREATE POLICY select_files ON public.files FOR SELECT USING (true);
+
+    -- Policy for inserting records
+    CREATE POLICY insert_files ON public.files FOR INSERT WITH CHECK (true);
+
+    -- Policy for updating records
+    CREATE POLICY update_files ON public.files FOR UPDATE USING (true);
+
+    -- Policy for deleting records
+    CREATE POLICY delete_files ON public.files FOR DELETE USING (true);
+    
+    -- Create indexes
+    CREATE INDEX files_folder_id_idx ON public.files("folderId");
+    CREATE INDEX files_user_id_idx ON public.files("userId");
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+Increment folder file count:
+-- Create the count increment function directly (not inside another function)
+CREATE OR REPLACE FUNCTION public.increment_folder_file_count(folder_id UUID)
+RETURNS void AS $$
+BEGIN
+  UPDATE public.folders
+  SET files = files + 1
+  WHERE id = folder_id;
+END;
+$$ LANGUAGE plpgsql;
+
+decrement folder file count:
+-- Create the count decrement function directly
+CREATE OR REPLACE FUNCTION public.decrement_folder_file_count(folder_id UUID)
+RETURNS void AS $$
+BEGIN
+  UPDATE public.folders
+  SET files = GREATEST(0, files - 1)
+  WHERE id = folder_id;
+END;
+$$ LANGUAGE plpgsql;
+
+folders table:
+-- Execute each function to create tables
+SELECT create_folders_table();
+SELECT create_files_table();
+
+document storage policies:
+-- First, ensure the documents bucket exists (if not already created)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('documents', 'documents', false)
+ON CONFLICT (id) DO NOTHING;
+
+-- Allow users to upload files to their own folders
+CREATE POLICY "Users can upload their own files"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (
+    bucket_id = 'documents' AND
+    (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Allow users to read their own files
+CREATE POLICY "Users can view their own files"
+ON storage.objects
+FOR SELECT
+TO authenticated
+USING (
+    bucket_id = 'documents' AND
+    (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- Allow users to delete their own files
+CREATE POLICY "Users can delete their own files"
+ON storage.objects
+FOR DELETE
+TO authenticated
+USING (
+    bucket_id = 'documents' AND
+    (storage.foldername(name))[1] = auth.uid()::text
+);
+
+folder and file security policies:
+-- Drop existing policies
+DROP POLICY IF EXISTS select_folders ON public.folders;
+DROP POLICY IF EXISTS insert_folders ON public.folders;
+DROP POLICY IF EXISTS update_folders ON public.folders;
+DROP POLICY IF EXISTS delete_folders ON public.folders;
+
+DROP POLICY IF EXISTS select_files ON public.files;
+DROP POLICY IF EXISTS insert_files ON public.files;
+DROP POLICY IF EXISTS update_files ON public.files;
+DROP POLICY IF EXISTS delete_files ON public.files;
+
+-- Create more secure policies for folders
+CREATE POLICY select_folders ON public.folders 
+    FOR SELECT 
+    USING (auth.uid()::text = "userId");
+
+CREATE POLICY insert_folders ON public.folders 
+    FOR INSERT 
+    WITH CHECK (auth.uid()::text = "userId");
+
+CREATE POLICY update_folders ON public.folders 
+    FOR UPDATE 
+    USING (auth.uid()::text = "userId");
+
+CREATE POLICY delete_folders ON public.folders 
+    FOR DELETE 
+    USING (auth.uid()::text = "userId");
+
+-- Create more secure policies for files
+CREATE POLICY select_files ON public.files 
+    FOR SELECT 
+    USING (auth.uid()::text = "userId");
+
+CREATE POLICY insert_files ON public.files 
+    FOR INSERT 
+    WITH CHECK (auth.uid()::text = "userId");
+
+CREATE POLICY update_files ON public.files 
+    FOR UPDATE 
+    USING (auth.uid()::text = "userId");
+
+CREATE POLICY delete_files ON public.files 
+    FOR DELETE 
+    USING (auth.uid()::text = "userId");
+
+Bucket configuration check and setup:
+-- Check if bucket exists and is properly configured
+SELECT * FROM storage.buckets WHERE id = 'documents';
+
+-- Make sure the bucket is created with proper settings
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'documents',
+    'documents',
+    false,
+    50000000, -- 50MB limit
+    ARRAY[
+        'image/*',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    ]
+)
+ON CONFLICT (id) DO UPDATE SET
+    file_size_limit = EXCLUDED.file_size_limit,
+    allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+files access control policies:
+-- Drop existing policies first
+DROP POLICY IF EXISTS "Users can upload their own files" ON storage.objects;
+DROP POLICY IF EXISTS "Users can view their own files" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete their own files" ON storage.objects;
+
+-- Create new policies with more specific path matching
+CREATE POLICY "Users can upload their own files"
+ON storage.objects FOR INSERT TO authenticated
+WITH CHECK (
+    bucket_id = 'documents' 
+    AND auth.uid()::text = (storage.foldername(name))[1]
+);
+
+CREATE POLICY "Users can view their own files"
+ON storage.objects FOR SELECT TO authenticated
+USING (
+    bucket_id = 'documents' 
+    AND auth.uid()::text = (storage.foldername(name))[1]
+);
+
+CREATE POLICY "Users can delete their own files"
+ON storage.objects FOR DELETE TO authenticated
+USING (
+    bucket_id = 'documents' 
+    AND auth.uid()::text = (storage.foldername(name))[1]
+);
+
+Files access policies for public:
+-- Drop existing policies
+DROP POLICY IF EXISTS "Users can upload their own files" ON storage.objects;
+DROP POLICY IF EXISTS "Users can view their own files" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete their own files" ON storage.objects;
+
+-- Create new policies with public access
+CREATE POLICY "Public can upload files"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'documents');
+
+CREATE POLICY "Public can view files"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'documents');
+
+CREATE POLICY "Public can delete files"
+ON storage.objects FOR DELETE
+USING (bucket_id = 'documents');
+
+folder and file access policies:
+-- Drop existing folder policies
+DROP POLICY IF EXISTS select_folders ON public.folders;
+DROP POLICY IF EXISTS insert_folders ON public.folders;
+DROP POLICY IF EXISTS update_folders ON public.folders;
+DROP POLICY IF EXISTS delete_folders ON public.folders;
+
+-- Create new public folder policies
+CREATE POLICY "Public can view folders"
+ON public.folders FOR SELECT
+USING (true);
+
+CREATE POLICY "Public can create folders"
+ON public.folders FOR INSERT
+WITH CHECK (true);
+
+CREATE POLICY "Public can update folders"
+ON public.folders FOR UPDATE
+USING (true);
+
+CREATE POLICY "Public can delete folders"
+ON public.folders FOR DELETE
+USING (true);
+
+-- Drop existing file policies
+DROP POLICY IF EXISTS select_files ON public.files;
+DROP POLICY IF EXISTS insert_files ON public.files;
+DROP POLICY IF EXISTS update_files ON public.files;
+DROP POLICY IF EXISTS delete_files ON public.files;
+
+-- Create new public file policies
+CREATE POLICY "Public can view files"
+ON public.files FOR SELECT
+USING (true);
+
+CREATE POLICY "Public can create files"
+ON public.files FOR INSERT
+WITH CHECK (true);
+
+CREATE POLICY "Public can update files"
+ON public.files FOR UPDATE
+USING (true);
+
+CREATE POLICY "Public can delete files"
+ON public.files FOR DELETE
+USING (true);
+
+setup document storage policies:
+-- First ensure the documents bucket exists
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('documents', 'documents', false)
+ON CONFLICT (id) DO NOTHING;
+
+-- Drop all existing policies first
+DROP POLICY IF EXISTS "Users can upload their own files" ON storage.objects;
+DROP POLICY IF EXISTS "Users can view their own files" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete their own files" ON storage.objects;
+DROP POLICY IF EXISTS "Public can upload files" ON storage.objects;
+DROP POLICY IF EXISTS "Public can view files" ON storage.objects;
+DROP POLICY IF EXISTS "Public can delete files" ON storage.objects;
+
+-- Create new storage policies for public access
+CREATE POLICY "Allow public upload"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'documents');
+
+CREATE POLICY "Allow public select"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'documents');
+
+CREATE POLICY "Allow public delete"
+ON storage.objects FOR DELETE
+USING (bucket_id = 'documents');
+
+-- Drop existing table policies
+DROP POLICY IF EXISTS select_folders ON public.folders;
+DROP POLICY IF EXISTS insert_folders ON public.folders;
+DROP POLICY IF EXISTS update_folders ON public.folders;
+DROP POLICY IF EXISTS delete_folders ON public.folders;
+
+DROP POLICY IF EXISTS select_files ON public.files;
+DROP POLICY IF EXISTS insert_files ON public.files;
+DROP POLICY IF EXISTS update_files ON public.files;
+DROP POLICY IF EXISTS delete_files ON public.files;
+
+-- Create new folder policies for public access
+CREATE POLICY "Allow public select folders"
+ON public.folders FOR SELECT
+USING (true);
+
+CREATE POLICY "Allow public insert folders"
+ON public.folders FOR INSERT
+WITH CHECK (true);
+
+CREATE POLICY "Allow public update folders"
+ON public.folders FOR UPDATE
+USING (true);
+
+CREATE POLICY "Allow public delete folders"
+ON public.folders FOR DELETE
+USING (true);
+
+-- Create new file policies for public access
+CREATE POLICY "Allow public select files"
+ON public.files FOR SELECT
+USING (true);
+
+CREATE POLICY "Allow public insert files"
+ON public.files FOR INSERT
+WITH CHECK (true);
+
+CREATE POLICY "Allow public update files"
+ON public.files FOR UPDATE
+USING (true);
+
+CREATE POLICY "Allow public delete files"
+ON public.files FOR DELETE
+USING (true);
+
+-- Make sure RLS is enabled
+ALTER TABLE public.folders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.files ENABLE ROW LEVEL SECURITY;
+
+Public document bucket management:
+-- Update the documents bucket to be public
+UPDATE storage.buckets
+SET public = true
+WHERE id = 'documents';
+
+-- If bucket doesn't exist, create it as public
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('documents', 'documents', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+-- Ensure storage policies are correct for public bucket
+DROP POLICY IF EXISTS "Allow public upload" ON storage.objects;
+DROP POLICY IF EXISTS "Allow public select" ON storage.objects;
+DROP POLICY IF EXISTS "Allow public delete" ON storage.objects;
+
+-- Create new storage policies for public bucket
+CREATE POLICY "Allow public upload"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'documents');
+
+CREATE POLICY "Allow public select"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'documents');
+
+CREATE POLICY "Allow public delete"
+ON storage.objects FOR DELETE
+USING (bucket_id = 'documents');
+
+setup document storage bucket:
+-- First, delete the existing bucket if it exists
+DELETE FROM storage.buckets WHERE id = 'documents';
+
+-- Create the bucket with proper settings
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'documents',
+    'documents',
+    true,
+    50000000, -- 50MB limit
+    ARRAY[
+        'image/*',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+    ]
+);
+
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Allow public upload" ON storage.objects;
+DROP POLICY IF EXISTS "Allow public select" ON storage.objects;
+DROP POLICY IF EXISTS "Allow public delete" ON storage.objects;
+
+-- Create new storage policies with more permissive rules
+CREATE POLICY "Allow public upload"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'documents');
+
+CREATE POLICY "Allow public select"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'documents');
+
+CREATE POLICY "Allow public delete"
+ON storage.objects FOR DELETE
+USING (bucket_id = 'documents');
+
+-- Create tables for job descriptions and analysis results
+CREATE OR REPLACE FUNCTION public.create_job_description_table()
+RETURNS void AS $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_tables WHERE tablename = 'job_descriptions') THEN
+    CREATE TABLE public.job_descriptions (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      description TEXT NOT NULL,
+      folder_id UUID REFERENCES public.folders(id) ON DELETE CASCADE,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      "userId" TEXT NOT NULL
+    );
+
+    -- Add RLS policies
+    ALTER TABLE public.job_descriptions ENABLE ROW LEVEL SECURITY;
+
+    -- Policy for selecting records
+    CREATE POLICY select_job_descriptions ON public.job_descriptions 
+        FOR SELECT 
+        USING (auth.uid()::text = "userId");
+
+    -- Policy for inserting records
+    CREATE POLICY insert_job_descriptions ON public.job_descriptions 
+        FOR INSERT 
+        WITH CHECK (auth.uid()::text = "userId");
+
+    -- Policy for updating records
+    CREATE POLICY update_job_descriptions ON public.job_descriptions 
+        FOR UPDATE 
+        USING (auth.uid()::text = "userId");
+
+    -- Policy for deleting records
+    CREATE POLICY delete_job_descriptions ON public.job_descriptions 
+        FOR DELETE 
+        USING (auth.uid()::text = "userId");
+        
+    -- Create indexes
+    CREATE INDEX job_descriptions_folder_id_idx ON public.job_descriptions(folder_id);
+    CREATE INDEX job_descriptions_user_id_idx ON public.job_descriptions("userId");
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION public.create_analysis_results_table()
+RETURNS void AS $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_tables WHERE tablename = 'analysis_results') THEN
+    CREATE TABLE public.analysis_results (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      file_id UUID NOT NULL REFERENCES public.files(id) ON DELETE CASCADE,
+      job_description_id UUID NOT NULL REFERENCES public.job_descriptions(id) ON DELETE CASCADE,
+      match_score NUMERIC(5,2) NOT NULL,
+      strengths JSONB,
+      weaknesses JSONB,
+      achievement_bonus NUMERIC(5,2),
+      aspect_scores JSONB,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      "userId" TEXT NOT NULL
+    );
+
+    -- Add RLS policies
+    ALTER TABLE public.analysis_results ENABLE ROW LEVEL SECURITY;
+
+    -- Policy for selecting records
+    CREATE POLICY select_analysis_results ON public.analysis_results 
+        FOR SELECT 
+        USING (auth.uid()::text = "userId");
+
+    -- Policy for inserting records
+    CREATE POLICY insert_analysis_results ON public.analysis_results 
+        FOR INSERT 
+        WITH CHECK (auth.uid()::text = "userId");
+
+    -- Policy for updating records
+    CREATE POLICY update_analysis_results ON public.analysis_results 
+        FOR UPDATE 
+        USING (auth.uid()::text = "userId");
+
+    -- Policy for deleting records
+    CREATE POLICY delete_analysis_results ON public.analysis_results 
+        FOR DELETE 
+        USING (auth.uid()::text = "userId");
+        
+    -- Create indexes
+    CREATE INDEX analysis_results_file_id_idx ON public.analysis_results(file_id);
+    CREATE INDEX analysis_results_job_description_id_idx ON public.analysis_results(job_description_id);
+    CREATE INDEX analysis_results_user_id_idx ON public.analysis_results("userId");
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Execute the functions to create the tables
+SELECT create_job_description_table();
+SELECT create_analysis_results_table();
+
+-- Function to store a job description for a folder
+CREATE OR REPLACE FUNCTION public.store_job_description(
+  p_description TEXT,
+  p_folder_id UUID,
+  p_user_id TEXT
+)
+RETURNS UUID AS $$
+DECLARE
+  v_job_description_id UUID;
+BEGIN
+  INSERT INTO public.job_descriptions (description, folder_id, "userId")
+  VALUES (p_description, p_folder_id, p_user_id)
+  RETURNING id INTO v_job_description_id;
+  
+  RETURN v_job_description_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to store analysis results for a file
+CREATE OR REPLACE FUNCTION public.store_analysis_result(
+  p_file_id UUID,
+  p_job_description_id UUID,
+  p_match_score NUMERIC(5,2),
+  p_strengths JSONB,
+  p_weaknesses JSONB,
+  p_achievement_bonus NUMERIC(5,2),
+  p_aspect_scores JSONB,
+  p_user_id TEXT
+)
+RETURNS UUID AS $$
+DECLARE
+  v_analysis_result_id UUID;
+BEGIN
+  -- Check if analysis result already exists for this file and job description
+  SELECT id INTO v_analysis_result_id 
+  FROM public.analysis_results 
+  WHERE file_id = p_file_id AND job_description_id = p_job_description_id;
+  
+  -- If it exists, update it
+  IF v_analysis_result_id IS NOT NULL THEN
+    UPDATE public.analysis_results
+    SET match_score = p_match_score,
+        strengths = p_strengths,
+        weaknesses = p_weaknesses,
+        achievement_bonus = p_achievement_bonus,
+        aspect_scores = p_aspect_scores,
+        created_at = NOW()
+    WHERE id = v_analysis_result_id;
+  -- Otherwise, insert a new record
+  ELSE
+    INSERT INTO public.analysis_results (
+      file_id, 
+      job_description_id, 
+      match_score, 
+      strengths, 
+      weaknesses, 
+      achievement_bonus, 
+      aspect_scores, 
+      "userId"
+    )
+    VALUES (
+      p_file_id, 
+      p_job_description_id, 
+      p_match_score, 
+      p_strengths, 
+      p_weaknesses, 
+      p_achievement_bonus, 
+      p_aspect_scores, 
+      p_user_id
+    )
+    RETURNING id INTO v_analysis_result_id;
+  END IF;
+  
+  RETURN v_analysis_result_id;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get the latest job description for a folder
+CREATE OR REPLACE FUNCTION public.get_latest_job_description(p_folder_id UUID)
+RETURNS TABLE (
+  id UUID,
+  description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT jd.id, jd.description, jd.created_at
+  FROM public.job_descriptions jd
+  WHERE jd.folder_id = p_folder_id
+  ORDER BY jd.created_at DESC
+  LIMIT 1;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get analysis results for files in a folder
+CREATE OR REPLACE FUNCTION public.get_folder_analysis_results(p_folder_id UUID)
+RETURNS TABLE (
+  file_id UUID,
+  file_name TEXT,
+  match_score NUMERIC(5,2),
+  strengths JSONB,
+  weaknesses JSONB,
+  achievement_bonus NUMERIC(5,2),
+  aspect_scores JSONB,
+  analyzed_at TIMESTAMP WITH TIME ZONE
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    f.id as file_id,
+    f.name as file_name,
+    ar.match_score,
+    ar.strengths,
+    ar.weaknesses,
+    ar.achievement_bonus,
+    ar.aspect_scores,
+    ar.created_at as analyzed_at
+  FROM 
+    public.files f
+  LEFT JOIN 
+    public.analysis_results ar ON f.id = ar.file_id
+  LEFT JOIN 
+    public.job_descriptions jd ON ar.job_description_id = jd.id
+  WHERE 
+    f."folderId" = p_folder_id
+  ORDER BY 
+    ar.created_at DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create a view to easily display files with their latest analysis results
+CREATE OR REPLACE VIEW public.files_with_analysis AS
+SELECT 
+  f.id as file_id,
+  f.name as file_name,
+  f."folderId" as folder_id,
+  f."userId",
+  ar.id as analysis_id,
+  ar.match_score,
+  ar.strengths,
+  ar.weaknesses,
+  ar.achievement_bonus,
+  ar.aspect_scores,
+  ar.created_at as analyzed_at,
+  jd.id as job_description_id,
+  jd.description as job_description
+FROM 
+  public.files f
+LEFT JOIN 
+  public.analysis_results ar ON f.id = ar.file_id
+LEFT JOIN 
+  public.job_descriptions jd ON ar.job_description_id = jd.id;
+
+-- Example of how to use these functions:
+-- 1. Store a job description for a folder
+-- SELECT store_job_description('Job requires Python skills and 5 years experience', 'folder-uuid', 'user-id');
+
+-- 2. Store analysis results for a file
+-- SELECT store_analysis_result(
+--   'file-uuid', 
+--   'job-description-uuid', 
+--   85.5, 
+--   '["Strong Python skills", "Good communication"]'::jsonb, 
+--   '["Lacks experience"]'::jsonb, 
+--   5.0, 
+--   '{"technical": 90, "experience": 70, "education": 85}'::jsonb, 
+--   'user-id'
+-- );
+
+-- 3. Get the latest job description for a folder
+-- SELECT * FROM get_latest_job_description('folder-uuid');
+
+-- 4. Get analysis results for files in a folder
+-- SELECT * FROM get_folder_analysis_results('folder-uuid');
+
+-- 5. Query the view to get files with their analysis results
+-- SELECT * FROM files_with_analysis WHERE folder_id = 'folder-uuid';
