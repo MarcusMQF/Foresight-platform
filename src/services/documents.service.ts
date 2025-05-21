@@ -146,7 +146,6 @@ export class DocumentsService {
     userId: string
   ): Promise<FileItem> {
     try {
-      // Check if it's a zip file - but we no longer allow ZIP files
       const isZipFile = file.type === 'application/zip' || 
                       file.type === 'application/x-zip-compressed' ||
                       file.name.toLowerCase().endsWith('.zip');

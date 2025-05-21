@@ -204,15 +204,43 @@ const Documents: React.FC = () => {
     setUploadError(null);
     
     try {
+      const duplicateFiles: string[] = [];
+      const successfulUploads: FileItem[] = [];
+      
       for (const file of files) {
-        const uploadedFile = await documentsService.uploadFile(
-          file,
-          currentFolder.id,
-          TEMP_USER_ID
-        );
-        setFiles(prev => [uploadedFile, ...prev]);
+        try {
+          const uploadedFile = await documentsService.uploadFile(
+            file,
+            currentFolder.id,
+            TEMP_USER_ID
+          );
+          successfulUploads.push(uploadedFile);
+        } catch (error) {
+          // Check if this is a duplicate file error
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          if (errorMessage.includes('already exists in this folder')) {
+            duplicateFiles.push(file.name);
+          } else {
+            // For other errors, throw immediately
+            throw error;
+          }
+        }
       }
-      setIsUploadDialogOpen(false);
+      
+      // Add successfully uploaded files to the state
+      if (successfulUploads.length > 0) {
+        setFiles(prev => [...successfulUploads, ...prev]);
+      }
+      
+      // If we have duplicate files, show an error but don't close the dialog
+      if (duplicateFiles.length > 0) {
+        setUploadError(duplicateFiles.length === 1 
+          ? `**Duplicate file found:** ${duplicateFiles[0]}`
+          : `**Duplicate files found:** ${duplicateFiles.join(', ')}`);
+      } else if (successfulUploads.length > 0) {
+        // If all uploads were successful, close the dialog
+        setIsUploadDialogOpen(false);
+      }
     } catch (error) {
       console.error('Error uploading files:', error);
       setUploadError(error instanceof Error ? error.message : 'Failed to upload files');

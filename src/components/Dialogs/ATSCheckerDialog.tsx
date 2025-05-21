@@ -306,21 +306,21 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
   // Render weight adjustment section
   const renderWeightSettings = () => {
     return (
-      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Settings size={14} className="text-gray-600" />
+      <div className="mt-2 p-2 bg-gray-50 rounded-lg">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <Settings size={12} className="text-gray-600" />
             <h4 className="text-xs font-medium text-gray-700">Scoring Weights</h4>
           </div>
           <button 
             onClick={resetWeights}
             className="text-xs text-orange-600 hover:text-orange-800"
           >
-            Reset to Default
+            Reset
           </button>
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-2">
           <WeightSlider 
             label="Skills Match" 
             value={weights.skills} 
@@ -348,8 +348,8 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           />
         </div>
 
-        <div className="mt-3 text-xs text-gray-500">
-          <p>Total weight: 100% (weights are automatically balanced)</p>
+        <div className="mt-2 text-xs text-gray-500">
+          <p>Total weight: 100% (automatically balanced)</p>
         </div>
       </div>
     );
@@ -364,22 +364,22 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
       (current.score > prev.score) ? current : prev, batchResults[0]);
     
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <h3 className="text-sm font-medium text-gray-900">Batch Analysis Results</h3>
-          <div className="px-3 py-1 bg-orange-50 text-orange-700 text-xs rounded-full">
+          <h3 className="text-xs font-medium text-gray-900">Batch Analysis Results</h3>
+          <div className="px-2 py-0.5 bg-orange-50 text-orange-700 text-xs rounded-full">
             {batchResults.length} files analyzed
           </div>
         </div>
         
-        <div className="p-3 bg-green-50 rounded-lg">
+        <div className="p-2 bg-green-50 rounded-lg">
           <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-full mr-3">
-              <FileText size={16} className="text-green-600" />
+            <div className="p-1.5 bg-green-100 rounded-full mr-2">
+              <FileText size={14} className="text-green-600" />
             </div>
             <div>
               <p className="text-xs font-medium text-green-800">Best Match</p>
-              <p className="text-sm font-semibold text-green-900">{topMatch.filename}</p>
+              <p className="text-xs font-semibold text-green-900">{topMatch.filename}</p>
               <p className="text-xs text-green-700">Score: {topMatch.score}%</p>
             </div>
           </div>
@@ -389,17 +389,17 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File</th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
-                <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File</th>
+                <th className="px-3 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Score</th>
+                <th className="px-3 py-1.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {batchResults.sort((a, b) => b.score - a.score).map((result, index) => (
                 <tr key={index} className={result.filename === topMatch.filename ? 'bg-green-50' : ''}>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-800">{result.filename}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <div className={`px-2 py-1 rounded-full text-xs font-medium inline-flex items-center ${
+                  <td className="px-3 py-1.5 whitespace-nowrap text-xs text-gray-800">{result.filename}</td>
+                  <td className="px-3 py-1.5 whitespace-nowrap">
+                    <div className={`px-1.5 py-0.5 rounded-full text-xs font-medium inline-flex items-center ${
                       result.score >= 80 ? 'bg-green-50 text-green-700' : 
                       result.score >= 60 ? 'bg-yellow-50 text-yellow-700' : 
                       'bg-red-50 text-red-700'
@@ -407,7 +407,7 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
                       {result.score}%
                     </div>
                   </td>
-                  <td className="px-3 py-2 whitespace-nowrap text-xs text-right">
+                  <td className="px-3 py-1.5 whitespace-nowrap text-xs text-right">
                     <button 
                       className="text-orange-600 hover:text-orange-800 font-medium"
                       onClick={() => {
@@ -424,16 +424,16 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           </table>
         </div>
         
-        <div className="pt-2 flex justify-end space-x-3">
+        <div className="pt-1 flex justify-end space-x-2">
           <button
             onClick={resetForm}
-            className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 transition-colors duration-200"
+            className="px-2.5 py-1 bg-white border border-gray-200 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 transition-colors duration-200"
           >
             Check Different Job
           </button>
           <button
             onClick={onClose}
-            className="px-3 py-1.5 bg-orange-500 text-white text-xs font-medium rounded-md hover:bg-orange-600 transition-colors duration-200"
+            className="px-2.5 py-1 bg-orange-500 text-white text-xs font-medium rounded-md hover:bg-orange-600 transition-colors duration-200"
           >
             Close
           </button>
@@ -447,34 +447,34 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
     if (!results) return null;
 
     return (
-      <div className="space-y-5 p-1">
-        <div className="flex items-start space-x-3">
-          <div className="p-2 bg-orange-50 rounded">
-            <FileText size={18} className="text-orange-600" />
+      <div className="space-y-3">
+        <div className="flex items-start space-x-2">
+          <div className="p-1.5 bg-orange-50 rounded">
+            <FileText size={16} className="text-orange-600" />
           </div>
           <div className="flex-1">
             <div className="flex justify-between items-center">
               <div>
-                <h3 className="text-sm font-medium text-gray-900">Resume Analysis</h3>
+                <h3 className="text-xs font-medium text-gray-900">Resume Analysis</h3>
                 <p className="text-xs text-gray-500">{results.filename}</p>
               </div>
-              <div className="px-3 py-1 bg-orange-50 rounded-full">
+              <div className="px-2 py-0.5 bg-orange-50 rounded-full">
                 <span className="text-orange-700 font-medium text-xs">Score: {results.score}%</span>
               </div>
             </div>
           </div>
         </div>
         
-        <div className="space-y-4">
+        <div className="space-y-2.5">
           <div>
-            <h4 className="text-xs font-medium text-gray-700 mb-2">Matched Keywords</h4>
-            <div className="flex flex-wrap gap-2">
+            <h4 className="text-xs font-medium text-gray-700 mb-1">Matched Keywords</h4>
+            <div className="flex flex-wrap gap-1.5">
               {results.matchedKeywords.map((keyword, index) => (
                 <span 
                   key={index} 
-                  className="flex items-center px-2 py-1 bg-green-50 text-green-700 text-xs rounded-md"
+                  className="flex items-center px-1.5 py-0.5 bg-green-50 text-green-700 text-xs rounded-md"
                 >
-                  <CheckCircle size={12} className="mr-1" />
+                  <CheckCircle size={10} className="mr-1" />
                   {keyword}
                 </span>
               ))}
@@ -482,14 +482,14 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           </div>
           
           <div>
-            <h4 className="text-xs font-medium text-gray-700 mb-2">Missing Keywords</h4>
-            <div className="flex flex-wrap gap-2">
+            <h4 className="text-xs font-medium text-gray-700 mb-1">Missing Keywords</h4>
+            <div className="flex flex-wrap gap-1.5">
               {results.missingKeywords.map((keyword, index) => (
                 <span 
                   key={index} 
-                  className="flex items-center px-2 py-1 bg-red-50 text-red-700 text-xs rounded-md"
+                  className="flex items-center px-1.5 py-0.5 bg-red-50 text-red-700 text-xs rounded-md"
                 >
-                  <AlertTriangle size={12} className="mr-1" />
+                  <AlertTriangle size={10} className="mr-1" />
                   {keyword}
                 </span>
               ))}
@@ -497,11 +497,11 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           </div>
           
           <div>
-            <h4 className="text-xs font-medium text-gray-700 mb-2">Recommendations</h4>
-            <div className="bg-orange-50 rounded-md p-3 space-y-2">
+            <h4 className="text-xs font-medium text-gray-700 mb-1">Recommendations</h4>
+            <div className="bg-orange-50 rounded-md p-2 space-y-1.5">
               {results.recommendations.map((recommendation, index) => (
                 <div key={index} className="flex items-start">
-                  <Zap size={14} className="text-orange-500 mt-0.5 mr-2 flex-shrink-0" />
+                  <Zap size={12} className="text-orange-500 mt-0.5 mr-1.5 flex-shrink-0" />
                   <p className="text-xs text-orange-800">{recommendation}</p>
                 </div>
               ))}
@@ -509,16 +509,16 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           </div>
         </div>
         
-        <div className="pt-2 flex justify-end space-x-3">
+        <div className="pt-1 flex justify-end space-x-2">
           <button
             onClick={resetForm}
-            className="px-3 py-1.5 bg-white border border-gray-200 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 transition-colors duration-200"
+            className="px-2.5 py-1 bg-white border border-gray-200 text-gray-700 text-xs font-medium rounded-md hover:bg-gray-50 transition-colors duration-200"
           >
-            Check Another Resume
+            Check Another
           </button>
           <button
             onClick={onClose}
-            className="px-3 py-1.5 bg-orange-500 text-white text-xs font-medium rounded-md hover:bg-orange-600 transition-colors duration-200"
+            className="px-2.5 py-1 bg-orange-500 text-white text-xs font-medium rounded-md hover:bg-orange-600 transition-colors duration-200"
           >
             Close
           </button>
@@ -535,31 +535,31 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
     const remainingTime = Math.max(0, Math.ceil(estimatedTime * (100 - progress) / 100));
     
     return (
-      <div className="space-y-4 p-6">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <Clock size={18} className="text-orange-500" />
+      <div className="space-y-3 p-3">
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-1.5">
+            <Clock size={16} className="text-orange-500" />
             <h3 className="text-sm font-medium text-gray-900">Processing Resumes</h3>
           </div>
           <div className="text-sm text-orange-500 font-medium">{Math.min(progress, 100)}%</div>
         </div>
         
-        <div className="w-full bg-gray-200 rounded-full h-2.5">
+        <div className="w-full bg-gray-200 rounded-full h-2">
           <div 
-            className="bg-orange-500 h-2.5 rounded-full transition-all duration-300" 
+            className="bg-orange-500 h-2 rounded-full transition-all duration-300" 
             style={{ width: `${Math.min(progress, 100)}%` }} 
           />
         </div>
         
         <div className="flex justify-between items-center text-xs text-gray-500">
           <div>{processingStep}</div>
-          <div>Est. {remainingTime} seconds remaining</div>
+          <div>Est. {remainingTime}s remaining</div>
         </div>
 
-        <p className="text-xs text-gray-600 mt-4">
+        <p className="text-xs text-gray-600 mt-2">
           {isBatchMode 
             ? `Analyzing ${folderFiles.length} resumes against the job description...` 
-            : 'Analyzing your resume against the job description...'}
+            : 'Analyzing resume against the job description...'}
         </p>
       </div>
     );
@@ -571,8 +571,8 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={analyzing ? undefined : onClose} />
       
-      <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
-        <div className="flex items-center justify-between px-10 py-3 border-b border-gray-100">
+      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[85vh] overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
           <h2 className="text-sm font-semibold text-gray-900">
             {isBatchMode ? 'Batch Resume ATS Checker' : 'Resume ATS Checker'}
           </h2>
@@ -581,12 +581,12 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
               onClick={onClose}
               className="text-gray-400 hover:text-gray-500 transition-colors p-1 rounded-full hover:bg-gray-50"
             >
-              <X size={18} />
+              <X size={16} />
             </button>
           )}
         </div>
 
-        <div className="p-4 overflow-y-auto max-h-[calc(90vh-60px)]">
+        <div className="p-3 overflow-y-auto max-h-[calc(85vh-48px)]">
           {analyzing ? (
             renderProgressIndicator()
           ) : results ? (
@@ -594,33 +594,32 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           ) : batchResults ? (
             renderBatchResults()
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 bg-orange-50 rounded-full">
-                    <Zap size={16} className="text-orange-600" />
+                  <div className="p-1.5 bg-orange-50 rounded-full">
+                    <Zap size={14} className="text-orange-600" />
                   </div>
                   <h3 className="text-sm font-medium text-gray-900">ATS Checker</h3>
                 </div>
                 
-                <div className="px-3 py-1 bg-orange-50 text-orange-700 text-xs rounded-full">
+                <div className="px-2 py-0.5 bg-orange-50 text-orange-700 text-xs rounded-full">
                   {folderFiles.length} {folderFiles.length === 1 ? 'file' : 'files'} to analyze
                 </div>
               </div>
               
               <p className="text-xs text-gray-600">
                 Enter a job description to analyze {folderFiles.length === 1 ? 'this resume' : 'these resumes'} against. 
-                The ATS checker will analyze keyword matches, calculate an overall score, and provide recommendations for improvement.
               </p>
               
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-3">
                 <div>
                   <textarea
                     id="jobDescription"
                     placeholder="Paste the job description here..."
                     value={jobDescription}
                     onChange={(e) => setJobDescription(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm focus:outline-none focus:border focus:border-orange-400 transition-colors duration-200 h-32 resize-y"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-xs focus:outline-none focus:border focus:border-orange-400 transition-colors duration-200 h-24 resize-y"
                     required
                   />
                 </div>
@@ -630,9 +629,9 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
                   onClick={() => setShowWeightSettings(!showWeightSettings)}
                   className="flex items-center text-xs text-gray-600 hover:text-orange-600 transition-colors"
                 >
-                  <Settings size={14} className="mr-1" />
+                  <Settings size={12} className="mr-1" />
                   {showWeightSettings ? 'Hide Scoring Weights' : 'Customize Scoring Weights'}
-                  {showWeightSettings ? <ChevronUp size={14} className="ml-1" /> : <ChevronDown size={14} className="ml-1" />}
+                  {showWeightSettings ? <ChevronUp size={12} className="ml-1" /> : <ChevronDown size={12} className="ml-1" />}
                 </button>
                 
                 {showWeightSettings && renderWeightSettings()}
@@ -641,7 +640,7 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
                   <button
                     type="submit"
                     disabled={analyzing || !jobDescription || folderFiles.length === 0}
-                    className="px-4 py-2 bg-orange-500 text-white text-xs font-medium rounded-md hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 bg-orange-500 text-white text-xs font-medium rounded-md hover:bg-orange-600 focus:outline-none transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {analyzing ? 'Analyzing...' : `Analyze ${folderFiles.length === 1 ? 'Resume' : `${folderFiles.length} Resumes`}`}
                   </button>

@@ -29,7 +29,7 @@ export default function CreateFolderDialog({ isOpen, onClose, onSubmit }: Create
       {/* Dialog */}
       <div className="relative bg-white rounded-lg shadow-xl w-full max-w-sm mx-4">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <h2 className="text-base font-medium text-gray-900">Create New Folder</h2>
+          <h2 className="text-sm font-medium text-gray-900">Create New Folder</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-500 transition-colors p-1 rounded-full hover:bg-gray-50"
@@ -42,7 +42,7 @@ export default function CreateFolderDialog({ isOpen, onClose, onSubmit }: Create
           <div className="mb-4">
             <label 
               htmlFor="folderName" 
-              className="block text-sm text-gray-700 mb-1.5"
+              className="block text-xs text-gray-700 mb-1.5"
             >
               Folder Name
             </label>
@@ -52,7 +52,7 @@ export default function CreateFolderDialog({ isOpen, onClose, onSubmit }: Create
               name="folderName"
               autoFocus
               required
-              className="w-full px-2 py-2 text-sm border rounded-md focus:ring-1 focus:ring-primary-500 focus:border-primary-500 outline-none transition-shadow placeholder-gray-400"
+              className="w-full px-2 py-2 text-xs border rounded-md focus:outline-none focus:border-[#F04E23] focus:border transition-colors placeholder-gray-400"
               placeholder="Enter folder name"
             />
           </div>
@@ -61,13 +61,13 @@ export default function CreateFolderDialog({ isOpen, onClose, onSubmit }: Create
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors"
+              className="px-4 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 focus:outline-none focus:border-[#F04E23] transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 text-sm font-medium text-white bg-[#F04E23] rounded-md hover:bg-[#d83e15] focus:outline-none focus:ring-1 focus:ring-[#F04E23] transition-colors"
+              className="px-4 py-1.5 text-xs font-medium text-white bg-[#F04E23] rounded-md hover:bg-[#d83e15] focus:outline-none focus:border-[#F04E23] transition-colors"
             >
               Create
             </button>
