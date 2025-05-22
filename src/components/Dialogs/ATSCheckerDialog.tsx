@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, AlertTriangle, FileText, Zap, Clock, Settings, ChevronDown, ChevronUp } from 'lucide-react';
 import { AnalysisResult } from '../../services/resume-analysis.service';
+import resumeAnalysisService from '../../services/resume-analysis.service';
 import { FileItem } from '../../services/documents.service';
 import { useNavigate, useParams } from 'react-router-dom';
 import WeightSlider from '../UI/WeightSlider';
+import { supabase } from '../../lib/supabase';
 
 // Define the weights interface
 interface AspectWeights {
@@ -35,6 +37,7 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
   const [estimatedTime, setEstimatedTime] = useState(0);
   const [processingStep, setProcessingStep] = useState('');
   const [showWeightSettings, setShowWeightSettings] = useState(false);
+  const [filesToAnalyze, setFilesToAnalyze] = useState<FileItem[]>([]);
   
   // Initialize weights with default values
   const [weights, setWeights] = useState<AspectWeights>({
@@ -54,67 +57,86 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
       setProgress(0);
       setProcessingStep('');
       
+      // Store the files to analyze
+      setFilesToAnalyze(folderFiles);
+      
       // Set batch mode if multiple files are available
       setIsBatchMode(folderFiles.length > 1);
+      
+      console.log('Files available for analysis:', folderFiles.length);
     }
   }, [isOpen, folderFiles]);
 
   // Update progress during analysis
   useEffect(() => {
-    if (analyzing) {
-      const totalTime = folderFiles.length > 1 ? folderFiles.length * 500 : 3000; // Same as setTimeout in handleSubmit
-      const totalSteps = 100; // We want 100 steps for 0-100%
-      const stepTime = totalTime / totalSteps;
+    if (!analyzing) return;
+    
+    const totalTime = filesToAnalyze.length > 1 ? filesToAnalyze.length * 500 : 3000; // Same as setTimeout in handleSubmit
+    const totalSteps = 100; // We want 100 steps for 0-100%
+    const stepTime = totalTime / totalSteps;
+    
+    // Start progress at 1% immediately for better user feedback
+    setProgress(1);
+    console.log('Starting progress tracking, total time:', totalTime, 'ms');
+    
+    let currentProgress = 1;
+    const interval = setInterval(() => {
+      currentProgress = Math.min(98, currentProgress + 1);
+      setProgress(currentProgress);
       
-      // Start progress at 1% immediately for better user feedback
-      setProgress(1);
+      // Log progress every 10%
+      if (currentProgress % 10 === 0) {
+        console.log(`Analysis progress: ${currentProgress}%`);
+      }
       
-      const interval = setInterval(() => {
-        setProgress(prev => {
-          // Ensure we don't go past 98% until the actual processing is done
-          // This reserves the last 2% for the final completion
-          if (prev >= 98) {
-            clearInterval(interval);
-            return 98;
-          }
-          // Use a fixed increment to ensure smooth progress
-          // This will make progress more predictable and consistent
-          return Math.min(98, prev + 1);
-        });
-      }, stepTime);
+      // Stop at 98% and wait for the actual completion
+      if (currentProgress >= 98) {
+        console.log('Progress reached 98%, waiting for completion');
+        clearInterval(interval);
+      }
+    }, stepTime);
 
-      return () => clearInterval(interval);
-    }
-  }, [analyzing, folderFiles.length]);
+    return () => {
+      console.log('Clearing progress interval');
+      clearInterval(interval);
+    };
+  }, [analyzing, filesToAnalyze.length]);
 
   // Update estimated time based on number of files
   useEffect(() => {
-    if (analyzing) {
-      const baseTime = 5; // base seconds for processing
-      const timePerFile = 2; // seconds per file
-      const totalEstimatedTime = baseTime + (folderFiles.length * timePerFile);
-      setEstimatedTime(totalEstimatedTime);
+    if (!analyzing) return;
+    
+    const baseTime = 5; // base seconds for processing
+    const timePerFile = 2; // seconds per file
+    const totalEstimatedTime = baseTime + (filesToAnalyze.length * timePerFile);
+    setEstimatedTime(totalEstimatedTime);
+    console.log('Estimated processing time:', totalEstimatedTime, 'seconds');
 
-      // Simulate processing steps
-      const steps = ['Starting analysis', 'Extracting text', 'Analyzing keywords', 'Calculating matches'];
-      let currentStep = 0;
+    // Simulate processing steps
+    const steps = ['Starting analysis', 'Extracting text', 'Analyzing keywords', 'Calculating matches'];
+    let currentStep = 0;
+    
+    setProcessingStep(steps[0]);
+    console.log('Processing step:', steps[0]);
+
+    const stepInterval = setInterval(() => {
+      currentStep = (currentStep + 1) % steps.length;
+      setProcessingStep(steps[currentStep]);
+      console.log('Processing step:', steps[currentStep]);
       
-      setProcessingStep(steps[0]);
+      // When progress is high but not complete, stay in final processing step
+      if (progress > 90) {
+        console.log('Progress > 90%, finalizing');
+        clearInterval(stepInterval);
+        setProcessingStep('Finalizing results');
+      }
+    }, totalEstimatedTime * 250 / steps.length);
 
-      const stepInterval = setInterval(() => {
-        currentStep = (currentStep + 1) % steps.length;
-        setProcessingStep(steps[currentStep]);
-        
-        // When progress is high but not complete, stay in final processing step
-        if (progress > 90) {
-          clearInterval(stepInterval);
-          setProcessingStep('Finalizing results');
-        }
-      }, totalEstimatedTime * 250 / steps.length);
-
-      return () => clearInterval(stepInterval);
-    }
-  }, [analyzing, folderFiles.length, progress]);
+    return () => {
+      console.log('Clearing step interval');
+      clearInterval(stepInterval);
+    };
+  }, [analyzing, filesToAnalyze.length, progress]);
   
   // Handle weight change
   const handleWeightChange = (aspect: keyof AspectWeights, value: number) => {
@@ -174,10 +196,49 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
     });
   };
   
+  // Perform mock analysis without database dependencies
+  const performMockAnalysis = async (files: FileItem[], isSingleFile: boolean): Promise<AnalysisResult[]> => {
+    console.log(`Performing mock analysis for ${files.length} files, single file mode: ${isSingleFile}`);
+    
+    // Simulate varying analysis time
+    const delay = isSingleFile ? 2000 : Math.min(files.length * 300, 3000);
+    await new Promise(resolve => setTimeout(resolve, delay));
+    
+    const results: AnalysisResult[] = files.map((file, index) => ({
+      score: Math.floor(Math.random() * 30) + 60, // Random score between 60-90
+      matchedKeywords: ['project management', 'team leadership', 'agile', 'communication'].slice(0, 3 + index % 2),
+      missingKeywords: ['data analysis', 'python', 'machine learning'].slice(0, 2 + index % 2),
+      recommendations: [
+        'Add more specific details about your data analysis skills',
+        'Include python programming experience if applicable',
+        'Highlight any machine learning or AI projects you\'ve worked on'
+      ],
+      filename: file.name,
+      fileUrl: file.url,
+      file_id: file.id
+    }));
+    
+    console.log('Mock analysis completed successfully');
+    return results;
+  };
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (folderFiles.length === 0 || !jobDescription) {
+    console.log('Attempting to analyze files:', filesToAnalyze.length);
+    
+    if (filesToAnalyze.length === 0) {
+      console.error('No files available for analysis');
+      return;
+    }
+    
+    if (!jobDescription) {
+      console.error('No job description provided');
+      return;
+    }
+    
+    if (!folderId) {
+      console.error('No folder ID available');
       return;
     }
     
@@ -186,123 +247,171 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
     setProcessingStep('Starting analysis');
     
     try {
-      if (folderFiles.length === 1) {
-        // Single file analysis
-        setTimeout(() => {
-          // Mock results for single file
-          const singleResult = {
-            score: 76,
-            matchedKeywords: ['project management', 'team leadership', 'agile', 'communication'],
-            missingKeywords: ['data analysis', 'python', 'machine learning'],
-            recommendations: [
-              'Add more specific details about your data analysis skills',
-              'Include python programming experience if applicable',
-              'Highlight any machine learning or AI projects you\'ve worked on'
-            ],
-            filename: folderFiles[0].name,
-            fileUrl: folderFiles[0].url
-          };
+      console.log('Starting analysis with folder ID:', folderId);
+      
+      // Get the current user ID
+      let userId = 'anonymous';
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) {
+          console.error('Error getting user:', error);
+        } else {
+          userId = user?.id || 'anonymous';
+          console.log('Got user ID:', userId);
+        }
+      } catch (authError) {
+        console.error('Auth error:', authError);
+      }
+      
+      // Perform the mock analysis regardless of database success
+      const isSingleFile = filesToAnalyze.length === 1;
+      
+      // Start a timeout to increment progress
+      const totalTime = isSingleFile ? 3000 : Math.min(filesToAnalyze.length * 500, 5000);
+      
+      // Set up a temporary timer to track progress while the mock analysis runs
+      let currentProgress = 0;
+      const progressTimer = setInterval(() => {
+        currentProgress += 5;
+        if (currentProgress >= 95) {
+          clearInterval(progressTimer);
+          currentProgress = 95;
+        }
+        setProgress(currentProgress);
+      }, totalTime / 20);
+      
+      console.log('Storing job description for folder ID:', folderId, 'and user ID:', userId);
+      
+      // Try to store the job description, but continue even if it fails
+      let jobDescriptionId = null;
+      try {
+        jobDescriptionId = await resumeAnalysisService.storeJobDescription(
+          jobDescription,
+          folderId,
+          userId
+        );
+        console.log('Job description stored with ID:', jobDescriptionId);
+      } catch (jobDescError) {
+        console.error('Error storing job description:', jobDescError);
+      }
+      
+      console.log('Running mock analysis...');
+      const results = await performMockAnalysis(filesToAnalyze, isSingleFile);
+      
+      // Clean up progress timer
+      clearInterval(progressTimer);
+      
+      // Try to store analysis results if we have a job description ID
+      if (jobDescriptionId) {
+        try {
+          console.log('Attempting to store analysis results in database');
           
-          // Set progress to 100% only when processing is complete
-          setProgress(100);
-          
-          // Small delay to show 100% before navigating
-          setTimeout(() => {
-            // Store the results in localStorage
-            localStorage.setItem('resumeAnalysisResults', JSON.stringify([singleResult]));
-            localStorage.setItem('jobDescription', jobDescription);
-            localStorage.setItem('analysisWeights', JSON.stringify(weights));
+          for (let i = 0; i < results.length; i++) {
+            const result = results[i];
+            const file = filesToAnalyze[i];
             
-            // Store the current folder ID
-            if (folderId) {
-              localStorage.setItem('currentFolderId', folderId);
+            try {
+              await resumeAnalysisService.storeAnalysisResult(
+                file.id,
+                jobDescriptionId,
+                result.score,
+                result.matchedKeywords,
+                result.missingKeywords,
+                5.0, // Achievement bonus
+                { skills: 80, experience: 70, achievements: 75, education: 60, culturalFit: 65 }, // Aspect scores
+                userId
+              );
+              console.log(`Stored analysis for file ${i+1}/${results.length}`);
+            } catch (storeError) {
+              console.error(`Failed to store analysis for file ${i+1}:`, storeError);
+              // Continue with other files
             }
-            
-            onClose();
-            navigate('/resume-analysis-results');
-          }, 500);
+          }
+        } catch (batchStoreError) {
+          console.error('Error storing batch results:', batchStoreError);
+          // Continue with local results
+        }
+      }
+      
+      // Always set progress to 100% when complete
+      setProgress(100);
+      console.log('Setting progress to 100%');
+      
+      // Store results in localStorage regardless of database success
+      setTimeout(() => {
+        try {
+          console.log('Storing results in localStorage');
           
-          // In a real implementation:
-          // const result = await analysisService.analyzeResume(folderFiles[0], jobDescription, weights);
-          // result.fileUrl = folderFiles[0].url;
-          // setProgress(100);
-          // setTimeout(() => {
-          //   localStorage.setItem('resumeAnalysisResults', JSON.stringify([result]));
-          //   localStorage.setItem('jobDescription', jobDescription);
-          //   localStorage.setItem('analysisWeights', JSON.stringify(weights));
-          //   if (folderId) {
-          //     localStorage.setItem('currentFolderId', folderId);
-          //   }
-          //   onClose();
-          //   navigate('/resume-analysis-results');
-          // }, 500);
-        }, 3000);
-      } else {
-        // Multiple files analysis
-        setTimeout(() => {
-          // Mock results for batch analysis
-          const mockResults: AnalysisResult[] = folderFiles.map((file, index) => ({
-            score: Math.floor(Math.random() * 30) + 60, // Random score between 60-90
-            matchedKeywords: ['project management', 'team leadership', 'agile', 'communication'].slice(0, 3 + index % 2),
-            missingKeywords: ['data analysis', 'python', 'machine learning'].slice(0, 2 + index % 2),
-            recommendations: [
-              'Add more specific details about your data analysis skills',
-              'Include python programming experience if applicable',
-              'Highlight any machine learning or AI projects you\'ve worked on'
-            ],
-            filename: file.name,
-            fileUrl: file.url
-          }));
+          // Load existing results if any
+          const existingResultsStr = localStorage.getItem('resumeAnalysisResults');
+          let existingResults: AnalysisResult[] = [];
+          if (existingResultsStr) {
+            try {
+              existingResults = JSON.parse(existingResultsStr) as AnalysisResult[];
+              console.log('Loaded existing results from localStorage:', existingResults.length);
+            } catch (parseError) {
+              console.error('Error parsing existing results:', parseError);
+            }
+          }
           
-          // Set progress to 100% only when processing is complete
-          setProgress(100);
+          // Create a map to easily update or add new results
+          const resultsMap = new Map<string, AnalysisResult>();
           
-          // Store the results in localStorage
-          localStorage.setItem('resumeAnalysisResults', JSON.stringify(mockResults));
+          // Add existing results to the map
+          existingResults.forEach(result => {
+            if (result.file_id) {
+              resultsMap.set(result.file_id, result);
+            }
+          });
+          
+          // Add or update with new results
+          results.forEach(result => {
+            if (result.file_id) {
+              resultsMap.set(result.file_id, result);
+            }
+          });
+          
+          // Convert map back to array
+          const combinedResults = Array.from(resultsMap.values());
+          console.log('Combined results count:', combinedResults.length);
+          
+          // Store the combined results
+          localStorage.setItem('resumeAnalysisResults', JSON.stringify(combinedResults));
           localStorage.setItem('jobDescription', jobDescription);
           localStorage.setItem('analysisWeights', JSON.stringify(weights));
           
-          // Store the current folder ID
           if (folderId) {
             localStorage.setItem('currentFolderId', folderId);
           }
           
-          // Small delay to show 100% before navigating
-          setTimeout(() => {
-            onClose();
-            navigate('/resume-analysis-results');
-          }, 500);
-          
-          // In a real implementation:
-          // const results = await Promise.all(
-          //   folderFiles.map(file => analysisService.analyzeResume(file, jobDescription, weights))
-          // );
-          // const resultsWithUrls = results.map((result, index) => ({
-          //   ...result,
-          //   fileUrl: folderFiles[index].url
-          // }));
-          // setProgress(100);
-          // localStorage.setItem('resumeAnalysisResults', JSON.stringify(resultsWithUrls));
-          // localStorage.setItem('jobDescription', jobDescription);
-          // localStorage.setItem('analysisWeights', JSON.stringify(weights));
-          // if (folderId) {
-          //   localStorage.setItem('currentFolderId', folderId);
-          // }
-          // setTimeout(() => {
-          //   onClose();
-          //   navigate('/resume-analysis-results');
-          // }, 500);
-        }, folderFiles.length * 500);
-      }
+          console.log('Navigating to results page');
+          onClose();
+          navigate('/resume-analysis-results');
+        } catch (navError) {
+          console.error('Error during navigation:', navError);
+          alert('Error navigating to results page. Please try again.');
+          setAnalyzing(false);
+        }
+      }, 500);
     } catch (error) {
       console.error('Error analyzing resumes:', error);
       setAnalyzing(false);
+      alert('Error analyzing resumes: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
   
   const resetForm = () => {
     setJobDescription('');
     setResults(null);
+    setAnalyzing(false);
+    setProgress(0);
+    setProcessingStep('');
+    
+    // Reset to initial state, allowing user to analyze again
+    if (folderFiles.length > 0) {
+      setFilesToAnalyze(folderFiles);
+      setIsBatchMode(folderFiles.length > 1);
+    }
   };
 
   // Render weight adjustment section
@@ -473,7 +582,7 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
 
         <p className="text-xs text-gray-600 mt-2">
           {isBatchMode 
-            ? `Analyzing ${folderFiles.length} resumes against the job description...` 
+            ? `Analyzing ${filesToAnalyze.length} resumes against the job description...` 
             : 'Analyzing resume against the job description...'}
         </p>
       </div>
@@ -517,12 +626,12 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
                 </div>
                 
                 <div className="px-2 py-0.5 bg-orange-50 text-orange-700 text-xs rounded-full">
-                  {folderFiles.length} {folderFiles.length === 1 ? 'file' : 'files'} to analyze
+                  {filesToAnalyze.length} {filesToAnalyze.length === 1 ? 'file' : 'files'} to analyze
                 </div>
               </div>
               
               <p className="text-xs text-gray-600">
-                Enter a job description to analyze {folderFiles.length === 1 ? 'this resume' : 'these resumes'} against. 
+                Enter a job description to analyze {filesToAnalyze.length === 1 ? 'this resume' : 'these resumes'} against. 
               </p>
               
               <form onSubmit={handleSubmit} className="space-y-3">
@@ -552,10 +661,10 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
                 <div className="flex justify-end">
                   <button
                     type="submit"
-                    disabled={analyzing || !jobDescription || folderFiles.length === 0}
+                    disabled={analyzing || !jobDescription || filesToAnalyze.length === 0}
                     className="px-3 py-1.5 bg-orange-500 text-white text-xs font-medium rounded-md hover:bg-orange-600 focus:outline-none transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {analyzing ? 'Analyzing...' : `Analyze ${folderFiles.length === 1 ? 'Resume' : `${folderFiles.length} Resumes`}`}
+                    {analyzing ? 'Analyzing...' : `Analyze ${filesToAnalyze.length === 1 ? 'Resume' : `${filesToAnalyze.length} Resumes`}`}
                   </button>
                 </div>
               </form>

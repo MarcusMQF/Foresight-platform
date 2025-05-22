@@ -15,7 +15,8 @@ import {
   Download,
   X,
   AlertTriangle,
-  BarChart2
+  BarChart2,
+  CheckCircle
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import CreateFolderDialog from '../components/Dialogs/CreateFolderDialog';
@@ -26,6 +27,7 @@ import DocumentsLoader from '../components/UI/DocumentsLoader';
 import ATSCheckerButton from '../components/UI/ATSCheckerButton';
 import ATSCheckerDialog from '../components/Dialogs/ATSCheckerDialog';
 import { DocumentsService, FolderItem, FileItem } from '../services/documents.service';
+import resumeAnalysisService from '../services/resume-analysis.service';
 // JSZip for bundling multiple files
 import JSZip from 'jszip';
 // saveAs from file-saver for downloading zip files
@@ -64,7 +66,10 @@ const Documents: React.FC = () => {
   const [isATSCheckerOpen, setIsATSCheckerOpen] = useState(false);
   
   // Check if analysis results exist for current folder
-  const [hasAnalysisResults, setHasAnalysisResults] = useState(false);
+  const [, setHasAnalysisResults] = useState(false);
+  
+  // Track which files have been analyzed
+  const [analyzedFileIds, setAnalyzedFileIds] = useState<string[]>([]);
   
   // Document service instance
   const documentsService = new DocumentsService();
@@ -132,8 +137,37 @@ const Documents: React.FC = () => {
           const storedResults = localStorage.getItem('resumeAnalysisResults');
           if (storedFolderId === folderId && storedResults) {
             setHasAnalysisResults(true);
+            
+            // Extract file IDs from localStorage results as well
+            try {
+              const parsedResults = JSON.parse(storedResults);
+              const localStorageFileIds = parsedResults
+                .filter((result: any) => result.file_id)
+                .map((result: any) => result.file_id);
+              console.log('Found analyzed files in localStorage:', localStorageFileIds);
+              
+              // Get list of analyzed files in this folder from the database
+              const databaseFileIds = await resumeAnalysisService.getAnalyzedFilesInFolder(folderId);
+              console.log('Found analyzed files in database:', databaseFileIds);
+              
+              // Combine both sources of file IDs (database and localStorage)
+              const combinedFileIds = Array.from(new Set([...databaseFileIds, ...localStorageFileIds]));
+              console.log('Combined analyzed file IDs:', combinedFileIds);
+              
+              setAnalyzedFileIds(combinedFileIds);
+            } catch (parseError) {
+              console.error('Error parsing localStorage results:', parseError);
+              
+              // If localStorage parsing fails, fall back to just database results
+              const analyzedFiles = await resumeAnalysisService.getAnalyzedFilesInFolder(folderId);
+              setAnalyzedFileIds(analyzedFiles);
+            }
           } else {
             setHasAnalysisResults(false);
+            
+            // Still check database for analyzed files
+            const analyzedFiles = await resumeAnalysisService.getAnalyzedFilesInFolder(folderId);
+            setAnalyzedFileIds(analyzedFiles);
           }
         } else {
           // Load all folders for the user
@@ -148,6 +182,50 @@ const Documents: React.FC = () => {
     };
     
     loadData();
+  }, [folderId]);
+
+  // Update analyzed file IDs when component is focused or mounted
+  useEffect(() => {
+    // Only run if we're in a folder view
+    if (!folderId) return;
+    
+    const checkForAnalyzedFiles = async () => {
+      const storedFolderId = localStorage.getItem('currentFolderId');
+      const storedResults = localStorage.getItem('resumeAnalysisResults');
+      
+      // If we have results for this folder, update the analyzed files list
+      if (storedFolderId === folderId && storedResults) {
+        try {
+          // Get IDs from localStorage
+          const parsedResults = JSON.parse(storedResults);
+          const localStorageFileIds = parsedResults
+            .filter((result: any) => result.file_id)
+            .map((result: any) => result.file_id);
+          
+          // Get IDs from database
+          const databaseFileIds = await resumeAnalysisService.getAnalyzedFilesInFolder(folderId);
+          
+          // Combine both sources
+          const combinedFileIds = Array.from(new Set([...databaseFileIds, ...localStorageFileIds]));
+          
+          // Update state
+          setAnalyzedFileIds(combinedFileIds);
+          setHasAnalysisResults(combinedFileIds.length > 0);
+        } catch (error) {
+          console.error('Error updating analyzed file IDs:', error);
+        }
+      }
+    };
+    
+    checkForAnalyzedFiles();
+    
+    // Also add event listener to window focus to refresh when coming back to the tab
+    const handleFocus = () => {
+      checkForAnalyzedFiles();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [folderId]);
 
   // Filter folders based on search query when not in a folder
@@ -385,6 +463,20 @@ const Documents: React.FC = () => {
     navigate('/resume-analysis-results');
   };
 
+  // Open ATS Checker dialog
+  const openATSChecker = () => {
+    // If there are selected files, use those; otherwise use all files
+    // This allows analyzing specific files when they are selected
+    
+    // Make sure we have at least one selected file or all files
+    if (selectedFileIds.length === 0 && files.length > 0) {
+      // If no files are selected, select all files by default
+      setSelectedFileIds(files.map(file => file.id));
+    }
+    
+    setIsATSCheckerOpen(true);
+  };
+
   // Render folder dropdown menu
   const renderFolderMenu = () => {
     if (!dropdownState.isOpen) return null;
@@ -457,7 +549,7 @@ const Documents: React.FC = () => {
           {folderId && (
             <>
               <ATSCheckerButton 
-                onClick={() => setIsATSCheckerOpen(true)} 
+                onClick={openATSChecker} 
               />
               
               {/* Analyze Results button - always show in folder view */}
@@ -633,7 +725,9 @@ const Documents: React.FC = () => {
                               />
                             </td>
                             <td className="py-2.5 whitespace-nowrap pl-3">
-                              <span className="text-xs text-gray-800 font-medium truncate max-w-[200px]">{file.name}</span>
+                              <div className="flex items-center">
+                                <span className="text-xs text-gray-800 font-medium truncate max-w-[200px]">{file.name}</span>
+                              </div>
                             </td>
                             <td className="px-4 py-2.5 whitespace-nowrap">
                               <span className="text-xs text-gray-500">{formatFileSize(file.size)}</span>
@@ -648,7 +742,20 @@ const Documents: React.FC = () => {
                               </span>
                             </td>
                             <td className="px-4 py-2.5 whitespace-nowrap text-right pr-8">
-                              <div className="flex justify-end space-x-3">
+                              <div className="flex justify-end space-x-3 items-center">
+                                {analyzedFileIds.includes(file.id) && (
+                                  <span 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate('/resume-analysis-results');
+                                    }}
+                                    className="px-2 py-0.5 bg-orange-50 text-orange-700 text-[10px] rounded-full flex items-center border border-orange-200 font-medium hover:bg-orange-100 hover:border-orange-300 cursor-pointer transition-colors"
+                                    title="View analysis results"
+                                  >
+                                    <CheckCircle size={10} className="mr-1 text-orange-500" />
+                                    Analyzed
+                                  </span>
+                                )}
                                 <button
                                   onClick={() => handleFileDownload(file)}
                                   className="p-1 text-gray-400 hover:text-primary-600 transition-colors"
@@ -925,7 +1032,10 @@ const Documents: React.FC = () => {
       {/* ATS Checker Dialog with selected files */}
       <ATSCheckerDialog
         isOpen={isATSCheckerOpen}
-        onClose={() => setIsATSCheckerOpen(false)}
+        onClose={() => {
+          setIsATSCheckerOpen(false);
+          // Don't clear selected files on close, as the user might want to continue working with them
+        }}
         folderFiles={selectedFileIds.length > 0 ? 
           files.filter(file => selectedFileIds.includes(file.id)) : 
           files}

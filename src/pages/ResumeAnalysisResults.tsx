@@ -2,41 +2,128 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Search, ArrowLeft, ArrowDown, ArrowUp, ExternalLink } from 'lucide-react';
 import { AnalysisResult } from '../services/resume-analysis.service';
+import { supabase } from '../lib/supabase';
 
 const ResumeAnalysisResults: React.FC = () => {
   const navigate = useNavigate();
   const [results, setResults] = useState<AnalysisResult[]>([]);
-  const [, setJobDescription] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'score' | 'filename'>('score');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [folderId, setFolderId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load results from localStorage
-    const storedResults = localStorage.getItem('resumeAnalysisResults');
-    const storedJobDescription = localStorage.getItem('jobDescription');
-    const storedFolderId = localStorage.getItem('currentFolderId');
-    
-    if (storedResults) {
-      try {
-        const parsedResults = JSON.parse(storedResults) as AnalysisResult[];
-        setResults(parsedResults);
-      } catch (error) {
-        console.error('Error parsing stored results:', error);
+    // Load results from localStorage and Supabase
+    const loadResults = async () => {
+      setLoading(true);
+      console.log('Loading analysis results...');
+      
+      // Get data from localStorage
+      const storedResults = localStorage.getItem('resumeAnalysisResults');
+      const storedFolderId = localStorage.getItem('currentFolderId');
+      
+      let localResults: AnalysisResult[] = [];
+      if (storedResults) {
+        try {
+          localResults = JSON.parse(storedResults) as AnalysisResult[];
+          console.log('Loaded from localStorage:', localResults.length, 'results');
+          console.log('localStorage file IDs:', localResults.map(r => r.file_id).join(', '));
+        } catch (error) {
+          console.error('Error parsing stored results:', error);
+        }
       }
-    } else {
-      // No results found, redirect back to documents
-      navigate('/documents');
-    }
-    
-    if (storedJobDescription) {
-      setJobDescription(storedJobDescription);
-    }
+      
+      if (storedFolderId) {
+        setFolderId(storedFolderId);
+        console.log('Current folder ID:', storedFolderId);
+        
+        try {
+          // Direct database query instead of using the RPC function
+          console.log('Querying database for analysis results...');
+          
+          const { data: dbData, error: dbError } = await supabase
+            .from('files_with_analysis')
+            .select('*')
+            .eq('folder_id', storedFolderId)
+            .not('analysis_id', 'is', null);
+          
+          if (dbError) {
+            console.error('Error querying database:', dbError);
+            throw dbError;
+          }
+          
+          // Transform database results to match our AnalysisResult interface
+          const dbResults: AnalysisResult[] = dbData
+            .filter(item => item.match_score !== null)
+            .map(item => ({
+              id: item.file_id,
+              file_id: item.file_id,
+              filename: item.file_name,
+              score: item.match_score,
+              matchedKeywords: item.strengths ? JSON.parse(item.strengths) : [],
+              missingKeywords: item.weaknesses ? JSON.parse(item.weaknesses) : [],
+              recommendations: [],
+              analyzed_at: item.analyzed_at
+            }));
+          
+          console.log('Loaded from database:', dbResults.length, 'results');
+          console.log('Database file IDs:', dbResults.map(r => r.file_id).join(', '));
+          
+          // Create a map from all results (both localStorage and database)
+          const combinedMap = new Map<string, AnalysisResult>();
+          
+          // First add all database results to the map
+          dbResults.forEach(result => {
+            if (result.file_id) {
+              combinedMap.set(result.file_id, result);
+            }
+          });
+          
+          // Then override with localStorage results which are more recent
+          localResults.forEach(result => {
+            if (result.file_id) {
+              combinedMap.set(result.file_id, result);
+            }
+          });
+          
+          // Convert map back to array
+          const combinedResults = Array.from(combinedMap.values());
+          console.log('Combined results:', combinedResults.length, 'total files');
+          console.log('Combined file IDs:', combinedResults.map(r => r.file_id).join(', '));
+          
+          if (combinedResults.length > 0) {
+            setResults(combinedResults);
+          } else {
+            console.log('No results found, redirecting back to documents');
+            navigate(`/documents/${storedFolderId}`);
+          }
+        } catch (error) {
+          console.error('Error loading analysis results from database:', error);
+          // Fall back to localStorage results
+          if (localResults.length > 0) {
+            setResults(localResults);
+          } else {
+            // If no results found, redirect back to documents
+            console.log('No results available, redirecting back to documents');
+            navigate(`/documents/${storedFolderId}`);
+          }
+        }
+      } else {
+        // No folder ID, just use localStorage results
+        if (localResults.length > 0) {
+          setResults(localResults);
+        } else {
+          // No results found, redirect back to documents
+          console.log('No folder ID, redirecting back to documents');
+          navigate('/documents');
+        }
+      }
+      
+      setLoading(false);
+    };
 
-    if (storedFolderId) {
-      setFolderId(storedFolderId);
-    }
+    loadResults();
   }, [navigate]);
 
   // Filter results based on search term
@@ -170,7 +257,13 @@ const ResumeAnalysisResults: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {sortedResults.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-4 text-center text-xs text-gray-500">
+                      Loading analysis results...
+                    </td>
+                  </tr>
+                ) : sortedResults.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="px-6 py-4 text-center text-xs text-gray-500">
                       No results found
