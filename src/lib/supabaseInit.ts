@@ -50,6 +50,24 @@ export const initDocumentsStorage = async () => {
       console.log('Created files table');
     }
 
+    // Set up database tables for job descriptions if needed
+    const { error: createJobDescriptionsTableError } = await supabase.rpc('create_job_descriptions_table');
+    if (createJobDescriptionsTableError) {
+      // Table might already exist, which is fine
+      console.log('Note: Job descriptions table might already exist');
+    } else {
+      console.log('Created job descriptions table');
+    }
+
+    // Set up database tables for analysis results if needed
+    const { error: createAnalysisResultsTableError } = await supabase.rpc('create_analysis_results_table');
+    if (createAnalysisResultsTableError) {
+      // Table might already exist, which is fine
+      console.log('Note: Analysis results table might already exist');
+    } else {
+      console.log('Created analysis results table');
+    }
+
     // Create stored procedures for folder file count management
     const { error: createFolderProceduresError } = await supabase.rpc('create_folder_procedures');
     if (createFolderProceduresError) {

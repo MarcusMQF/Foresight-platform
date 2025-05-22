@@ -1,0 +1,179 @@
+Basic Candidate Information:
+Name: Extracted from the resume (e.g., "John Doe").
+Contact Email: Extracted from the resume (e.g., "john.doe@example.com").
+File Name: The resume file name (e.g., "John_Doe_Resume.pdf") for reference.
+Overall Match Score:
+Match Score: The final weighted score (e.g., 85.5%) reflecting how well the resume aligns with the job description.
+Achievement Bonus: Any bonus applied (e.g., "+15") for standout achievements, with a brief note (e.g., "Bonus for 'increased revenue by 20%'").
+Aspect Scores:
+Breakdown: Individual scores for each aspect (e.g., Skills: 90%, Experience: 75%, Achievements: 60%, Education: 50%, Cultural Fit: 70%).
+Weight Influence: Indicate the HR-defined weights (e.g., Skills: 40%, Achievements: 30%) to show their impact on the score.
+Strengths and Weaknesses:
+Strengths: Keywords or skills present in the resume that match the job description (e.g., "Python, Teamwork").
+Weaknesses: Keywords or skills missing from the resume compared to the job description (e.g., "SQL, Leadership").
+Key Achievements:
+Highlight: Notable achievements extracted from the resume (e.g., "Led a project that increased revenue by 20%"), linked to the achievement bonus.
+Notes Section:
+HR Input: A free-text area for HR to add manual notes or feedback (e.g., "Good cultural fit, schedule interview").
+
+What Should the NLP Model/Resume Parser Do?
+The NLP model or resume parser should accurately process the resume file to extract structured data, with a focus on your request for name and contact email, while supporting the multi-aspect analysis. Here's what it should handle:
+
+Core Capabilities
+Text Extraction:
+Input: Parse PDF and DOCX files using libraries like pdfminer.six and python-docx.
+Output: Raw text from the resume for further processing.
+Entity Extraction:
+Name:
+Goal: Accurately extract the candidate's full name (e.g., "John Doe" or "Jane Smith").
+Method: Use SpaCy's named entity recognition (NER) with the en_core_web_md model to identify PERSON entities, typically the first prominent name in the document.
+Challenge: Handle variations (e.g., "John A. Doe", "J. Doe") or multiple names (e.g., middle names, nicknames).
+Contact Email:
+Goal: Extract a valid email address (e.g., "john.doe@example.com").
+Method: Use a regular expression (regex) to identify email patterns (e.g., [a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}) or SpaCy's NER for custom email entities if trained.
+Challenge: Ensure only the primary email is captured (e.g., ignore secondary emails in a signature).
+Section Segmentation:
+Goal: Split the resume into sections (Skills, Experience, Achievements, Education, Cultural Fit).
+Method: Use rule-based parsing (e.g., keyword matching like "Skills:", "Experience:", "Education:") or a pre-trained NER model to identify section headers.
+Output: Text blocks for each section for aspect-specific analysis.
+Aspect-Specific Analysis:
+Skills: Extract keywords (e.g., "Python", "SQL") using SpaCy's part-of-speech tagging (nouns/proper nouns).
+Experience: Identify years or role titles (e.g., "5 years as Software Engineer") using regex or pattern matching.
+Achievements: Detect quantifiable results (e.g., "increased sales by 20%") using keyword triggers ("increased", "led", "%").
+Education: Extract degrees or certifications (e.g., "BSc in Computer Science") using keyword matching.
+Cultural Fit: Infer soft skills (e.g., "teamwork", "communication") from context or specific phrases.
+Semantic Similarity:
+Goal: Score each section's relevance to the job description.
+Method: Use DistilBERT to compute cosine similarity between section text and job description text, producing aspect scores (0-100%).
+Output: Aspect scores for weighted scoring.
+Strengths and Weaknesses:
+Goal: Compare resume keywords with job description requirements.
+Method: Use SpaCy to extract nouns/proper nouns from both documents, then match them to identify present (strengths) and missing (weaknesses) skills.
+Example Output
+Input Resume: "John Doe, john.doe@example.com, Skills: Python, Experience: 6 years as Software Engineer, Achievements: Increased revenue by 20%, Education: BSc in CS"
+Parsed Data:
+Name: "John Doe"
+Email: "john.doe@example.com"
+Skills: ["Python"]
+Experience: "6 years as Software Engineer"
+Achievements: "Increased revenue by 20%"
+Education: "BSc in CS"
+Cultural Fit: (inferred as none from this text)
+Job Description: "Skills: Python, SQL; Experience: 5+ years; Requires teamwork"
+Aspect Scores (via DistilBERT): Skills: 80%, Experience: 90%, Achievements: 70%, Education: 50%, Cultural Fit: 0%
+Strengths: ["Python"]
+Weaknesses: ["SQL", "teamwork"]
+Implementation Notes
+Dependencies:
+Install: pip install transformers torch spacy pdfminer.six python-docx
+Download: python -m spacy download en_core_web_md
+Accuracy Improvements:
+Name: Train SpaCy with a resume-specific dataset if names are misidentified.
+Email: Use a robust regex or a custom NER model fine-tuned on resumes.
+Sections: Fine-tune a model (e.g., from Hugging Face) for better section detection if rule-based parsing fails.
+Fallback: If extraction fails, flag the resume as "unprocessable" and log the error.
+
+# Supabase Storage Implementation Guide
+
+## Step 1: Database Schema Setup
+The database schema already exists in the project with tables for job_descriptions and analysis_results. These tables have the following structure:
+
+1. job_descriptions table:
+   - id: UUID (primary key)
+   - description: TEXT (job description content)
+   - folder_id: UUID (reference to folders table)
+   - created_at: TIMESTAMP
+   - userId: TEXT (user identifier)
+
+2. analysis_results table:
+   - id: UUID (primary key)
+   - file_id: UUID (reference to files table)
+   - job_description_id: UUID (reference to job_descriptions table)
+   - match_score: NUMERIC(5,2)
+   - strengths: JSONB
+   - weaknesses: JSONB
+   - achievement_bonus: NUMERIC(5,2)
+   - aspect_scores: JSONB
+   - created_at: TIMESTAMP
+   - userId: TEXT (user identifier)
+
+## Step 2: Job Description Storage Implementation
+1. Enhance the ResumeAnalysisService to fetch the latest job description when opening the ATS dialog:
+   - Update the getLatestJobDescription method to fetch the most recent job description for the current folder
+   - Modify the ATSCheckerDialog component to load this job description when opened
+
+2. Update the job description storage logic to:
+   - Check if a job description already exists for the folder
+   - If it exists, update it rather than creating a new one
+   - If it doesn't exist, create a new one
+
+## Step 3: Analysis Results Storage Implementation
+1. Enhance the ResumeAnalysisService to store analysis results with:
+   - File ID reference
+   - Job description ID reference
+   - Match score
+   - Strengths (keywords matched)
+   - Weaknesses (keywords missing)
+   - Achievement bonus
+   - Aspect scores (based on user-defined weights)
+   - User ID for ownership
+
+2. Add functionality to check if a file has already been analyzed:
+   - If it has, update the existing analysis result
+   - If not, create a new analysis result
+
+## Step 4: Folder-Specific Storage Implementation
+1. Ensure all database queries filter by folder_id to maintain folder isolation:
+   - Job descriptions are stored with folder_id reference
+   - Analysis results are associated with files that belong to specific folders
+   - Each folder has its own job description and analyzed files
+
+2. Implement folder-specific queries:
+   - Get job description for a specific folder
+   - Get all analyzed files in a specific folder
+   - Get analysis results for files in a specific folder
+
+## Step 5: User Interface Updates
+1. Update the ATSCheckerDialog component to:
+   - Load the existing job description for the current folder when opened
+   - Display the job description in the text area
+   - Allow users to edit the job description before analysis
+   - Store the updated job description when the user clicks "Analyze Resume"
+
+2. Update the weight adjustment UI to:
+   - Load default weights (Skills: 40%, Experience: 30%, Achievements: 20%, Education: 5%, Cultural Fit: 5%)
+   - Allow users to adjust weights using sliders
+   - Store the weights with the analysis results
+
+3. Create an Analysis Results Table component to:
+   - Display all analyzed files for the current folder
+   - Show match scores, strengths, and weaknesses
+   - Allow users to delete analysis results
+   - Provide navigation to detailed result views
+
+## Step 6: Integration Testing
+1. Test the job description storage:
+   - Create a new folder and add a job description
+   - Verify the job description is stored in the database
+   - Open the ATS dialog again and verify the job description is loaded
+
+2. Test the analysis results storage:
+   - Analyze files with the job description
+   - Verify the analysis results are stored in the database
+   - Navigate to the analysis results page and verify the results are displayed
+
+3. Test folder isolation:
+   - Create multiple folders with different job descriptions
+   - Analyze files in different folders
+   - Verify each folder has its own job description and analysis results
+
+## Step 7: Error Handling and Fallbacks
+1. Implement robust error handling:
+   - Handle database connection errors
+   - Provide fallback mechanisms (like local storage) if database operations fail
+   - Log errors for debugging
+
+2. Add user feedback:
+   - Show loading indicators during database operations
+   - Display success/error messages after operations complete
+   - Provide retry options for failed operations

@@ -5,6 +5,7 @@ import { AnalysisResult } from '../services/resume-analysis.service';
 import { DocumentsService } from '../services/documents.service';
 import { supabase } from '../lib/supabase';
 import SimplePDFViewer from '../components/SimplePDFViewer';
+import resumeAnalysisService from '../services/resume-analysis.service';
 
 // Log current component version
 console.log('ResumeDetails component loaded with SimplePDFViewer');
@@ -38,29 +39,113 @@ const ResumeDetails: React.FC = () => {
   }, [pdfUrl]);
 
   useEffect(() => {
-    // Load result from localStorage
-    const loadResult = () => {
+    // Load result from localStorage or database
+    const loadResult = async () => {
       try {
+        console.log('Loading result for ID:', resultId);
+        let selectedResult: AnalysisResult | null = null;
+        
+        // First try to load from localStorage
         const storedResults = localStorage.getItem('resumeAnalysisResults');
         if (storedResults) {
+          console.log('Found results in localStorage');
           const parsedResults = JSON.parse(storedResults) as AnalysisResult[];
+          
           if (resultId) {
             // Find the result with matching filename
-            const selectedResult = parsedResults.find(r => r.filename === resultId);
+            selectedResult = parsedResults.find(r => r.filename === resultId) || null;
             
             if (selectedResult) {
-              setResult(selectedResult);
-              fetchPdfUrl(selectedResult);
+              console.log('Found result in localStorage');
             } else {
-              console.error('Result not found');
-              navigate('/resume-analysis-results');
+              console.log('Result not found in localStorage, will try database');
             }
           } else if (parsedResults.length > 0) {
-            // If no ID is specified, use the first result
-            setResult(parsedResults[0]);
-            fetchPdfUrl(parsedResults[0]);
+            // If no ID is specified, use the first result from localStorage
+            selectedResult = parsedResults[0];
+            console.log('No ID specified, using first result from localStorage');
           }
+        }
+        
+        // If not found in localStorage, try the database
+        if (!selectedResult && resultId) {
+          console.log('Attempting to load result from database');
+          
+          try {
+            // Get current user ID
+            let userId = 'temp_user_id';
+            try {
+              const { data: { user }, error: userError } = await supabase.auth.getUser();
+              if (!userError && user) {
+                userId = user.id;
+              }
+            } catch (authError) {
+              console.error('Auth error:', authError);
+            }
+            
+            // Get current folder ID from localStorage
+            const folderId = localStorage.getItem('currentFolderId');
+            
+            if (folderId) {
+              console.log('Looking up file in database with name:', resultId);
+              
+              // First, find the file ID by filename
+              const { data: files, error: filesError } = await supabase
+                .from('files')
+                .select('id, name, url')
+                .eq('name', resultId)
+                .limit(1);
+              
+              if (filesError) {
+                console.error('Error fetching file:', filesError);
+              } else if (files && files.length > 0) {
+                console.log('Found file in database:', files[0]);
+                const fileId = files[0].id;
+                
+                // Now get the analysis result for this file
+                const { data: analysisData, error: analysisError } = await supabase
+                  .from('analysis_results')
+                  .select('*')
+                  .eq('file_id', fileId)
+                  .eq('userId', userId)
+                  .order('created_at', { ascending: false })
+                  .limit(1);
+                
+                if (analysisError) {
+                  console.error('Error fetching analysis result:', analysisError);
+                } else if (analysisData && analysisData.length > 0) {
+                  console.log('Found analysis result in database:', analysisData[0]);
+                  
+                  // Transform database result to match our AnalysisResult interface
+                  selectedResult = {
+                    id: analysisData[0].id,
+                    file_id: fileId,
+                    filename: resultId,
+                    fileUrl: files[0].url,
+                    score: analysisData[0].match_score,
+                    matchedKeywords: Array.isArray(analysisData[0].strengths) 
+                      ? analysisData[0].strengths 
+                      : JSON.parse(analysisData[0].strengths || '[]'),
+                    missingKeywords: Array.isArray(analysisData[0].weaknesses) 
+                      ? analysisData[0].weaknesses 
+                      : JSON.parse(analysisData[0].weaknesses || '[]'),
+                    recommendations: [], // We don't store recommendations in the database yet
+                    analyzed_at: analysisData[0].created_at
+                  };
+                }
+              }
+            }
+          } catch (dbError) {
+            console.error('Error retrieving from database:', dbError);
+          }
+        }
+        
+        if (selectedResult) {
+          console.log('Setting result:', selectedResult);
+          setResult(selectedResult);
+          fetchPdfUrl(selectedResult);
         } else {
+          console.error('Result not found in localStorage or database');
           navigate('/resume-analysis-results');
         }
       } catch (error) {
@@ -158,7 +243,21 @@ const ResumeDetails: React.FC = () => {
 
   // Return to results
   const backToResults = () => {
+    // Make sure we preserve the folder ID when navigating back
+    // This ensures "Back to Files" will work on the results page
     navigate('/resume-analysis-results');
+  };
+
+  // Add a function to navigate directly back to files
+  const backToFiles = () => {
+    // Get folder ID from localStorage
+    const storedFolderId = localStorage.getItem('currentFolderId');
+    if (storedFolderId) {
+      navigate(`/documents/${storedFolderId}`);
+    } else {
+      // Fallback to documents root if no folder ID is available
+      navigate('/documents');
+    }
   };
 
   // Add a retry button for the PDF viewer
@@ -187,6 +286,14 @@ const ResumeDetails: React.FC = () => {
         >
           <ArrowLeft size={16} className="mr-1" />
           Back to Results
+        </button>
+        
+        <button
+          onClick={backToFiles}
+          className="flex items-center text-sm text-gray-500 hover:text-gray-800"
+        >
+          <ArrowLeft size={16} className="mr-1" />
+          Back to Files
         </button>
       </div>
 

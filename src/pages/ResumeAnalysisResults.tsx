@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Search, ArrowLeft, ArrowDown, ArrowUp, ExternalLink } from 'lucide-react';
+import { FileText, Search, ArrowLeft, ArrowDown, ArrowUp, ExternalLink, Trash2, Loader2 } from 'lucide-react';
 import { AnalysisResult } from '../services/resume-analysis.service';
 import { supabase } from '../lib/supabase';
+import { ATSService } from '../services';
+import ConfirmationDialog from '../components/Dialogs/ConfirmationDialog';
 
 const ResumeAnalysisResults: React.FC = () => {
   const navigate = useNavigate();
@@ -12,6 +14,10 @@ const ResumeAnalysisResults: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [folderId, setFolderId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [resultToDelete, setResultToDelete] = useState<AnalysisResult | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const atsService = new ATSService();
 
   useEffect(() => {
     // Load results from localStorage and Supabase
@@ -38,6 +44,9 @@ const ResumeAnalysisResults: React.FC = () => {
         setFolderId(storedFolderId);
         console.log('Current folder ID:', storedFolderId);
         
+        // Save folder ID to localStorage to ensure it's available for navigation
+        localStorage.setItem('currentFolderId', storedFolderId);
+        
         try {
           // Direct database query instead of using the RPC function
           console.log('Querying database for analysis results...');
@@ -57,7 +66,7 @@ const ResumeAnalysisResults: React.FC = () => {
           const dbResults: AnalysisResult[] = dbData
             .filter(item => item.match_score !== null)
             .map(item => ({
-              id: item.file_id,
+              id: item.analysis_id, // Use the analysis_id as the id
               file_id: item.file_id,
               filename: item.file_name,
               score: item.match_score,
@@ -161,9 +170,120 @@ const ResumeAnalysisResults: React.FC = () => {
   // Return to files view
   const returnToFiles = () => {
     if (folderId) {
-      navigate(`/documents/${folderId}`);
+      // Double check that we have a valid folder ID
+      const storedFolderId = localStorage.getItem('currentFolderId') || folderId;
+      navigate(`/documents/${storedFolderId}`);
     } else {
-      navigate('/documents');
+      // Fallback to the folder ID in localStorage if component state doesn't have it
+      const storedFolderId = localStorage.getItem('currentFolderId');
+      if (storedFolderId) {
+        navigate(`/documents/${storedFolderId}`);
+      } else {
+        // If all else fails, go to the documents root
+        navigate('/documents');
+      }
+    }
+  };
+
+  // Handle delete button click
+  const handleDeleteClick = (result: AnalysisResult) => {
+    setResultToDelete(result);
+    setDeleteConfirmOpen(true);
+  };
+
+  // Handle delete confirmation
+  const handleDeleteConfirm = async () => {
+    if (!resultToDelete) return;
+    
+    setDeleting(true);
+    
+    try {
+      // Flag to track if the result was successfully deleted
+      let isDeleted = false;
+      
+      // Get current user ID
+      let userId = 'temp_user_id';
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (!error && user) {
+          userId = user.id;
+        }
+      } catch (authError) {
+        console.error('Auth error:', authError);
+      }
+      
+      // If the result has an ID, try to delete it from the database
+      if (resultToDelete.id) {
+        try {
+          console.log(`Attempting to delete analysis result ID: ${resultToDelete.id} for file: ${resultToDelete.filename}`);
+          
+          // Step 1: Delete from analysis_results table
+          const { success, fileId } = await atsService.deleteAnalysisResult(resultToDelete.id, userId);
+          
+          if (success) {
+            console.log(`Successfully deleted analysis result from database for file: ${resultToDelete.filename}`);
+            
+            // Step 2: Force refresh the file's analysis status
+            if (fileId) {
+              console.log(`Refreshing analysis status for file ID: ${fileId}`);
+              await atsService.refreshFileAnalysisStatus(fileId, userId);
+            } else if (resultToDelete.file_id) {
+              // Fallback to using file_id from resultToDelete
+              console.log(`Refreshing analysis status for file ID (fallback): ${resultToDelete.file_id}`);
+              await atsService.refreshFileAnalysisStatus(resultToDelete.file_id, userId);
+            }
+            
+            isDeleted = true;
+          } else {
+            console.log('Database delete failed, will try localStorage only');
+          }
+        } catch (dbError) {
+          console.error('Database error while deleting:', dbError);
+          console.log('Continuing with localStorage delete');
+        }
+      } else {
+        console.log('No database ID for this result, deleting from localStorage only');
+      }
+      
+      // Whether database delete succeeded or not, also remove from localStorage
+      // This ensures we clean up localStorage entries that might not be in the database
+      const storedResults = localStorage.getItem('resumeAnalysisResults');
+      if (storedResults) {
+        try {
+          const parsedResults = JSON.parse(storedResults) as AnalysisResult[];
+          const updatedResults = parsedResults.filter(r => 
+            r.file_id !== resultToDelete.file_id && 
+            r.filename !== resultToDelete.filename
+          );
+          
+          // Update localStorage with filtered results
+          localStorage.setItem('resumeAnalysisResults', JSON.stringify(updatedResults));
+          console.log(`Removed result from localStorage: ${resultToDelete.filename}`);
+          isDeleted = true;
+        } catch (error) {
+          console.error('Error updating localStorage:', error);
+        }
+      }
+      
+      if (isDeleted) {
+        // Update the UI state to remove the deleted item
+        setResults(prevResults => prevResults.filter(r => 
+          (r.file_id !== resultToDelete.file_id) && 
+          (r.id !== resultToDelete.id || r.filename !== resultToDelete.filename)
+        ));
+        
+        console.log(`Successfully deleted analysis result for file: ${resultToDelete.filename}`);
+      } else {
+        console.error('Failed to delete analysis result from any storage');
+        alert('Failed to delete analysis result. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error deleting analysis result:', error);
+      alert('Error deleting analysis result: ' + String(error));
+    } finally {
+      setDeleting(false);
+      setDeleteConfirmOpen(false);
+      setResultToDelete(null);
     }
   };
 
@@ -298,13 +418,24 @@ const ResumeAnalysisResults: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <button 
-                          onClick={() => viewResumeDetails(result)}
-                          className="text-orange-600 hover:text-orange-800 inline-flex items-center text-xs font-medium"
-                        >
-                          View Details
-                          <ExternalLink size={14} className="ml-1" />
-                        </button>
+                        <div className="flex items-center justify-end space-x-4">
+                          <button 
+                            onClick={() => handleDeleteClick(result)}
+                            className={`text-gray-400 hover:text-red-500 inline-flex items-center text-xs font-medium transition-colors ${deleting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            disabled={deleting}
+                            title="Delete this analysis result"
+                          >
+                            <Trash2 size={14} className="mr-1" />
+                            <span>Delete</span>
+                          </button>
+                          <button 
+                            onClick={() => viewResumeDetails(result)}
+                            className="text-orange-600 hover:text-orange-800 inline-flex items-center text-xs font-medium"
+                          >
+                            View Details
+                            <ExternalLink size={14} className="ml-1" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -336,6 +467,22 @@ const ResumeAnalysisResults: React.FC = () => {
       </div>
 
       {renderResultsTable()}
+
+      {/* Confirmation Dialog */}
+      <ConfirmationDialog
+        isOpen={deleteConfirmOpen}
+        title="Delete Analysis Result"
+        message={`This will permanently delete the analysis result for "${resultToDelete?.filename}". The file itself will not be deleted. This action cannot be undone.`}
+        confirmText={deleting ? (
+          <span className="flex items-center">
+            <Loader2 size={14} className="animate-spin mr-2" />
+            Deleting...
+          </span>
+        ) : "Delete"}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteConfirmOpen(false)}
+        isDangerous={true}
+      />
     </div>
   );
 };

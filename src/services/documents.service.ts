@@ -428,7 +428,7 @@ export class DocumentsService {
   }
 
   /**
-   * Delete a file
+   * Delete a file with all parameters
    */
   async deleteFile(fileId: string, folderId: string, userId: string): Promise<void> {
     try {
@@ -454,6 +454,36 @@ export class DocumentsService {
       await this.syncFolderFileCount(folderId);
     } catch (error) {
       console.error('Error deleting file:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a file by ID only - fetches folder and user info from database
+   */
+  async deleteFileById(fileId: string): Promise<void> {
+    try {
+      // First get the file details to get folderId and userId
+      const { data: fileData, error: fileError } = await supabase
+        .from('files')
+        .select('folderId, userId')
+        .eq('id', fileId)
+        .single();
+      
+      if (fileError) {
+        throw fileError;
+      }
+      
+      if (!fileData) {
+        throw new Error(`File not found with ID: ${fileId}`);
+      }
+      
+      const { folderId, userId } = fileData;
+      
+      // Now delete the file with all required params
+      await this.deleteFile(fileId, folderId, userId);
+    } catch (error) {
+      console.error('Error deleting file by ID:', error);
       throw error;
     }
   }

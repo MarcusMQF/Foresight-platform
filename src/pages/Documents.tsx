@@ -33,6 +33,7 @@ import JSZip from 'jszip';
 // saveAs from file-saver for downloading zip files
 import { saveAs } from 'file-saver';
 import CustomCheckbox from '../components/UI/CustomCheckbox';
+import { ATSService } from '../services/ats.service';
 
 // Format file size to human-readable format
 const formatFileSize = (bytes: number): string => {
@@ -109,68 +110,126 @@ const Documents: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   
-  // Load folders or files based on route
+  // Create a ref to store analyzed file IDs that persists across renders
+  const analyzedFileIdsRef = useRef<{[folderId: string]: string[]}>({});
+  
+  // Save analyzed file IDs to ref when they change
+  useEffect(() => {
+    if (folderId && analyzedFileIds.length > 0) {
+      analyzedFileIdsRef.current[folderId] = [...analyzedFileIds];
+    }
+  }, [folderId, analyzedFileIds]);
+  
+  // Restore analyzed file IDs from ref when folder changes
+  useEffect(() => {
+    if (folderId && analyzedFileIdsRef.current[folderId]?.length > 0) {
+      // Only set if we have data and it's different from current state
+      const savedIds = analyzedFileIdsRef.current[folderId];
+      setAnalyzedFileIds(prev => {
+        if (JSON.stringify(prev.sort()) !== JSON.stringify(savedIds.sort())) {
+          return savedIds;
+        }
+        return prev;
+      });
+    }
+  }, [folderId]);
+
+  // Load initial data based on route
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      // Clear any selected files when changing folders or navigating away
-      setSelectedFileIds([]);
+      setFiles([]);
+      setAnalyzedFileIds([]);
+      setCurrentFolder(null);
       
       try {
+        // If we have a folder ID, fetch the files in that folder
         if (folderId) {
-          // Load files for a specific folder
+          // Check if the folder exists first
+          try {
+            // Get folder details
+            const { data, error } = await supabase
+              .from('folders')
+              .select('*')
+              .eq('id', folderId)
+              .single();
+              
+            if (error || !data) {
+              // Folder not found, redirect to documents
+              navigate('/documents');
+              return;
+            }
+            setCurrentFolder(data);
+            
+            // Save the current folder ID to localStorage for navigation context
+            localStorage.setItem('currentFolderId', folderId);
+          } catch (folderError) {
+            console.error('Error fetching folder:', folderError);
+            navigate('/documents');
+            return;
+          }
+
+          // Fetch files in the folder
           const folderFiles = await documentsService.getFiles(folderId);
           setFiles(folderFiles);
           
-          // Get folder details
-          const { data, error } = await supabase
-            .from('folders')
-            .select('*')
-            .eq('id', folderId)
-            .single();
-            
-          if (error) throw error;
-          setCurrentFolder(data);
-          
-          // Check if analysis results exist for this folder
-          const storedFolderId = localStorage.getItem('currentFolderId');
-          const storedResults = localStorage.getItem('resumeAnalysisResults');
-          if (storedFolderId === folderId && storedResults) {
-            setHasAnalysisResults(true);
-            
-            // Extract file IDs from localStorage results as well
+          // Check if we have cached analyzed file IDs for this folder
+          const cachedAnalyzedFileIds = localStorage.getItem(`analyzed_files_${folderId}`);
+          if (cachedAnalyzedFileIds) {
             try {
-              const parsedResults = JSON.parse(storedResults);
-              const localStorageFileIds = parsedResults
-                .filter((result: any) => result.file_id)
-                .map((result: any) => result.file_id);
-              console.log('Found analyzed files in localStorage:', localStorageFileIds);
+              // Use the cached IDs as an initial value to prevent flickering
+              const parsedIds = JSON.parse(cachedAnalyzedFileIds);
+              // Filter to only include IDs that exist in the current files list
+              const fileIdMap = new Map(folderFiles.map(file => [file.id, true]));
+              const validIds = parsedIds.filter((id: string) => fileIdMap.has(id));
               
-              // Get list of analyzed files in this folder from the database
-              const databaseFileIds = await resumeAnalysisService.getAnalyzedFilesInFolder(folderId);
-              console.log('Found analyzed files in database:', databaseFileIds);
-              
-              // Combine both sources of file IDs (database and localStorage)
-              const combinedFileIds = Array.from(new Set([...databaseFileIds, ...localStorageFileIds]));
-              console.log('Combined analyzed file IDs:', combinedFileIds);
-              
-              setAnalyzedFileIds(combinedFileIds);
+              if (validIds.length > 0) {
+                setAnalyzedFileIds(validIds);
+                setHasAnalysisResults(true);
+              }
             } catch (parseError) {
-              console.error('Error parsing localStorage results:', parseError);
-              
-              // If localStorage parsing fails, fall back to just database results
-              const analyzedFiles = await resumeAnalysisService.getAnalyzedFilesInFolder(folderId);
-              setAnalyzedFileIds(analyzedFiles);
+              console.error('Error parsing cached analyzed file IDs:', parseError);
             }
-          } else {
-            setHasAnalysisResults(false);
-            
-            // Still check database for analyzed files
-            const analyzedFiles = await resumeAnalysisService.getAnalyzedFilesInFolder(folderId);
-            setAnalyzedFileIds(analyzedFiles);
           }
+          
+          // Wait for the next tick to ensure analyzedFileIds state is properly initialized
+          setTimeout(() => {
+            const storedFolderId = localStorage.getItem('currentFolderId');
+            const storedResults = localStorage.getItem('resumeAnalysisResults');
+            
+            // Check if analysis results exist for this folder
+            if (storedFolderId === folderId && storedResults) {
+              setHasAnalysisResults(true);
+              
+              try {
+                const parsedResults = JSON.parse(storedResults);
+                const localStorageFileIds = parsedResults
+                  .filter((result: any) => result.file_id)
+                  .map((result: any) => result.file_id);
+                
+                resumeAnalysisService.getAnalyzedFilesInFolder(folderId)
+                  .then(databaseFileIds => {
+                    const combinedFileIds = Array.from(new Set([...databaseFileIds, ...localStorageFileIds]));
+                    setAnalyzedFileIds(combinedFileIds);
+                  });
+              } catch (parseError) {
+                console.error('Error parsing localStorage results:', parseError);
+                
+                resumeAnalysisService.getAnalyzedFilesInFolder(folderId)
+                  .then(analyzedFiles => {
+                    setAnalyzedFileIds(analyzedFiles);
+                  });
+              }
+            } else {
+              resumeAnalysisService.getAnalyzedFilesInFolder(folderId)
+                .then(analyzedFiles => {
+                  setAnalyzedFileIds(analyzedFiles);
+                  setHasAnalysisResults(analyzedFiles.length > 0);
+                });
+            }
+          }, 0);
         } else {
-          // Load all folders for the user
+          // Otherwise, fetch all folders
           const userFolders = await documentsService.getFolders(TEMP_USER_ID);
           setFolders(userFolders);
         }
@@ -182,51 +241,125 @@ const Documents: React.FC = () => {
     };
     
     loadData();
-  }, [folderId]);
+  }, [folderId, navigate]);
 
   // Update analyzed file IDs when component is focused or mounted
   useEffect(() => {
     // Only run if we're in a folder view
     if (!folderId) return;
     
-    const checkForAnalyzedFiles = async () => {
-      const storedFolderId = localStorage.getItem('currentFolderId');
-      const storedResults = localStorage.getItem('resumeAnalysisResults');
-      
-      // If we have results for this folder, update the analyzed files list
-      if (storedFolderId === folderId && storedResults) {
-        try {
-          // Get IDs from localStorage
-          const parsedResults = JSON.parse(storedResults);
-          const localStorageFileIds = parsedResults
-            .filter((result: any) => result.file_id)
-            .map((result: any) => result.file_id);
-          
-          // Get IDs from database
-          const databaseFileIds = await resumeAnalysisService.getAnalyzedFilesInFolder(folderId);
-          
-          // Combine both sources
-          const combinedFileIds = Array.from(new Set([...databaseFileIds, ...localStorageFileIds]));
-          
-          // Update state
-          setAnalyzedFileIds(combinedFileIds);
-          setHasAnalysisResults(combinedFileIds.length > 0);
-        } catch (error) {
-          console.error('Error updating analyzed file IDs:', error);
+    // Function to refresh analyzed file IDs
+    const refreshAnalyzedFileIds = async () => {
+      try {
+        // Get local storage data
+        const storedFolderId = localStorage.getItem('currentFolderId');
+        const storedResults = localStorage.getItem('resumeAnalysisResults');
+        
+        // Get database file IDs first to ensure we have the most up-to-date data
+        const databaseFileIds = await resumeAnalysisService.getAnalyzedFilesInFolder(folderId);
+        
+        // Check if we have any stored IDs in our ref
+        const refIds = analyzedFileIdsRef.current[folderId] || [];
+        
+        // Prepare array to collect file IDs from all sources
+        let combinedFileIds = [...databaseFileIds, ...refIds];
+        
+        // Check local storage if we have results for this folder
+        if (storedFolderId === folderId && storedResults) {
+          try {
+            const parsedResults = JSON.parse(storedResults);
+            const localStorageFileIds = parsedResults
+              .filter((result: any) => result.file_id)
+              .map((result: any) => result.file_id);
+            
+            // Add local storage IDs that aren't already in the combined list
+            localStorageFileIds.forEach((id: string) => {
+              if (!combinedFileIds.includes(id)) {
+                combinedFileIds.push(id);
+              }
+            });
+          } catch (parseError) {
+            console.error('Error parsing stored results:', parseError);
+          }
         }
+        
+        // Remove duplicates
+        combinedFileIds = Array.from(new Set(combinedFileIds));
+        
+        // Update state if different from current state
+        if (combinedFileIds.length > 0) {
+          setAnalyzedFileIds(prev => {
+            // Sort both arrays for accurate comparison
+            const prevSorted = [...prev].sort();
+            const newSorted = [...combinedFileIds].sort();
+            
+            // Only update if there's a difference
+            if (JSON.stringify(prevSorted) !== JSON.stringify(newSorted)) {
+              // Save to ref for persistence
+              analyzedFileIdsRef.current[folderId] = combinedFileIds;
+              return combinedFileIds;
+            }
+            return prev;
+          });
+          
+          setHasAnalysisResults(combinedFileIds.length > 0);
+        }
+      } catch (error) {
+        console.error('Error refreshing analyzed file IDs:', error);
       }
     };
     
-    checkForAnalyzedFiles();
-    
-    // Also add event listener to window focus to refresh when coming back to the tab
-    const handleFocus = () => {
-      checkForAnalyzedFiles();
+    // Setup visibility change listener to refresh when tab is focused
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // When returning to the page, refresh the analyzed file IDs
+        refreshAnalyzedFileIds();
+      }
     };
     
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [folderId]);
+    // Setup file analysis status change listener
+    const handleFileAnalysisStatusChanged = (event: CustomEvent) => {
+      const { fileId, isAnalyzed } = event.detail;
+      
+      if (isAnalyzed) {
+        // Add file to analyzed files list if not already there
+        setAnalyzedFileIds(prev => {
+          if (prev.includes(fileId)) return prev;
+          const newIds = [...prev, fileId];
+          // Also update our ref for persistence
+          if (folderId) {
+            analyzedFileIdsRef.current[folderId] = newIds;
+          }
+          return newIds;
+        });
+        setHasAnalysisResults(true);
+      } else {
+        // Remove file from analyzed files list
+        setAnalyzedFileIds(prev => {
+          const newIds = prev.filter(id => id !== fileId);
+          // Also update our ref for persistence
+          if (folderId) {
+            analyzedFileIdsRef.current[folderId] = newIds;
+          }
+          setHasAnalysisResults(newIds.length > 0);
+          return newIds;
+        });
+      }
+    };
+    
+    // Run initial refresh
+    refreshAnalyzedFileIds();
+    
+    // Add event listeners
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('fileAnalysisStatusChanged', handleFileAnalysisStatusChanged as EventListener);
+    
+    // Cleanup on unmount
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('fileAnalysisStatusChanged', handleFileAnalysisStatusChanged as EventListener);
+    };
+  }, [folderId, files]); // Add files dependency to ensure we filter against current files
 
   // Filter folders based on search query when not in a folder
   const filteredFolders = folders.filter(folder =>
@@ -411,22 +544,90 @@ const Documents: React.FC = () => {
     setFileToDelete(file);
   };
 
-  // Handle bulk file deletion
-  const handleBulkDelete = async () => {
-    if (!currentFolder || selectedFileIds.length === 0) return;
+  // Handle file deletion confirmation
+  const handleConfirmSingleDelete = async () => {
+    if (!fileToDelete) return;
+    
+    setSingleDeleteLoading(true);
+    try {
+      // Delete the file from the database
+      await documentsService.deleteFileById(fileToDelete.id);
+      
+      // Close the dialog first before any state updates to avoid UI freezing
+      setShowSingleDeleteConfirm(false);
+      
+      // Remove the file from the list
+      setFiles(prev => prev.filter(f => f.id !== fileToDelete.id));
+      
+      // If this file was analyzed, update the analyzed files list
+      if (analyzedFileIds.includes(fileToDelete.id)) {
+        setAnalyzedFileIds(prev => prev.filter(id => id !== fileToDelete.id));
+      }
+      
+      // Clear the file to delete
+      setFileToDelete(null);
+      
+      // Update the file list in the background without affecting analyzedFileIds
+      if (folderId) {
+        setTimeout(() => {
+          documentsService.getFiles(folderId)
+            .then(updatedFiles => {
+              setFiles(updatedFiles);
+            })
+            .catch(error => {
+              console.error('Error refreshing files:', error);
+            });
+        }, 500);
+      }
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      // Still close the dialog even on error
+      setShowSingleDeleteConfirm(false);
+      setFileToDelete(null);
+    } finally {
+      setSingleDeleteLoading(false);
+    }
+  };
+
+  // Handle bulk delete confirmation
+  const handleConfirmBulkDelete = async () => {
+    if (selectedFileIds.length === 0) return;
     
     setBulkActionLoading(true);
     try {
+      // Delete each selected file
       for (const fileId of selectedFileIds) {
-        await documentsService.deleteFile(fileId, currentFolder.id, TEMP_USER_ID);
+        await documentsService.deleteFileById(fileId);
       }
-      // Update files state by removing deleted files
+      
+      // Close the dialog first before any state updates
+      setShowBulkDeleteConfirm(false);
+      
+      // Remove the deleted files from the list
       setFiles(prev => prev.filter(f => !selectedFileIds.includes(f.id)));
+      
+      // Only remove the deleted files from analyzedFileIds
+      setAnalyzedFileIds(prev => prev.filter(id => !selectedFileIds.includes(id)));
+      
       // Clear selection
       setSelectedFileIds([]);
-      setShowBulkDeleteConfirm(false);
+      
+      // Update the file list in the background without affecting analyzedFileIds
+      if (folderId) {
+        setTimeout(() => {
+          documentsService.getFiles(folderId)
+            .then(updatedFiles => {
+              setFiles(updatedFiles);
+            })
+            .catch(error => {
+              console.error('Error refreshing files:', error);
+            });
+        }, 500);
+      }
     } catch (error) {
-      console.error('Error deleting multiple files:', error);
+      console.error('Error deleting files:', error);
+      // Still close the dialog even on error
+      setShowBulkDeleteConfirm(false);
     } finally {
       setBulkActionLoading(false);
     }
@@ -926,6 +1127,7 @@ const Documents: React.FC = () => {
               <button
                 onClick={() => setShowBulkDeleteConfirm(false)}
                 className="text-gray-400 hover:text-gray-500 transition-colors p-1 rounded-full hover:bg-gray-50"
+                disabled={bulkActionLoading}
               >
                 <X size={14} />
               </button>
@@ -948,11 +1150,12 @@ const Documents: React.FC = () => {
                   type="button"
                   onClick={() => setShowBulkDeleteConfirm(false)}
                   className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 focus:outline-none transition-colors"
+                  disabled={bulkActionLoading}
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={handleBulkDelete}
+                  onClick={handleConfirmBulkDelete}
                   disabled={bulkActionLoading}
                   className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none transition-colors"
                 >
@@ -973,7 +1176,12 @@ const Documents: React.FC = () => {
             <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
               <h2 className="text-sm font-medium text-gray-900">Delete File</h2>
               <button
-                onClick={() => setShowSingleDeleteConfirm(false)}
+                onClick={() => {
+                  if (!singleDeleteLoading) {
+                    setShowSingleDeleteConfirm(false);
+                    setFileToDelete(null);
+                  }
+                }}
                 className="text-gray-400 hover:text-gray-500 transition-colors p-1 rounded-full hover:bg-gray-50"
                 disabled={singleDeleteLoading}
               >
@@ -996,28 +1204,19 @@ const Documents: React.FC = () => {
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowSingleDeleteConfirm(false)}
+                  onClick={() => {
+                    if (!singleDeleteLoading) {
+                      setShowSingleDeleteConfirm(false);
+                      setFileToDelete(null);
+                    }
+                  }}
                   className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 focus:outline-none transition-colors"
                   disabled={singleDeleteLoading}
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={async () => {
-                    if (fileToDelete) {
-                      setSingleDeleteLoading(true);
-                      try {
-                        await documentsService.deleteFile(fileToDelete.id, currentFolder!.id, TEMP_USER_ID);
-                        setFiles(prev => prev.filter(f => f.id !== fileToDelete.id));
-                      } catch (error) {
-                        console.error('Error deleting file:', error);
-                      } finally {
-                        setSingleDeleteLoading(false);
-                        setFileToDelete(null);
-                        setShowSingleDeleteConfirm(false);
-                      }
-                    }
-                  }}
+                  onClick={handleConfirmSingleDelete}
                   disabled={singleDeleteLoading}
                   className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none transition-colors"
                 >

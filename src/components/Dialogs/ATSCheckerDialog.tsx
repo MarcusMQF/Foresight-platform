@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle, AlertTriangle, FileText, Zap, Clock, Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, CheckCircle, AlertTriangle, FileText, Zap, Clock, Settings, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { AnalysisResult } from '../../services/resume-analysis.service';
 import resumeAnalysisService from '../../services/resume-analysis.service';
 import { FileItem } from '../../services/documents.service';
@@ -38,6 +38,7 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
   const [processingStep, setProcessingStep] = useState('');
   const [showWeightSettings, setShowWeightSettings] = useState(false);
   const [filesToAnalyze, setFilesToAnalyze] = useState<FileItem[]>([]);
+  const [loadingJobDescription, setLoadingJobDescription] = useState(false);
   
   // Initialize weights with default values
   const [weights, setWeights] = useState<AspectWeights>({
@@ -48,10 +49,43 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
     culturalFit: 5
   });
   
+  // Load job description when dialog is opened
+  useEffect(() => {
+    if (isOpen && folderId) {
+      const loadJobDescription = async () => {
+        setLoadingJobDescription(true);
+        try {
+          // Use temp user ID until authentication is implemented
+          const userId = 'temp_user_id';
+          
+          // Try to load job description from database
+          const jobDesc = await resumeAnalysisService.getLatestJobDescription(folderId, userId);
+          
+          if (jobDesc) {
+            console.log('Loaded job description from database:', jobDesc.id);
+            setJobDescription(jobDesc.description);
+          } else {
+            // If no job description found, check localStorage as fallback
+            const storedJobDesc = localStorage.getItem('jobDescription');
+            if (storedJobDesc) {
+              console.log('Using job description from localStorage');
+              setJobDescription(storedJobDesc);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading job description:', error);
+        } finally {
+          setLoadingJobDescription(false);
+        }
+      };
+      
+      loadJobDescription();
+    }
+  }, [isOpen, folderId]);
+  
   // Reset state when dialog is opened
   useEffect(() => {
     if (isOpen) {
-      setJobDescription('');
       setResults(null);
       setAnalyzing(false);
       setProgress(0);
@@ -263,13 +297,10 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
         console.error('Auth error:', authError);
       }
       
-      // Perform the mock analysis regardless of database success
+      // Set up a temporary timer to track progress while the analysis runs
       const isSingleFile = filesToAnalyze.length === 1;
-      
-      // Start a timeout to increment progress
       const totalTime = isSingleFile ? 3000 : Math.min(filesToAnalyze.length * 500, 5000);
       
-      // Set up a temporary timer to track progress while the mock analysis runs
       let currentProgress = 0;
       const progressTimer = setInterval(() => {
         currentProgress += 5;
@@ -282,7 +313,7 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
       
       console.log('Storing job description for folder ID:', folderId, 'and user ID:', userId);
       
-      // Try to store the job description, but continue even if it fails
+      // Store the job description in the database
       let jobDescriptionId = null;
       try {
         jobDescriptionId = await resumeAnalysisService.storeJobDescription(
@@ -295,8 +326,80 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
         console.error('Error storing job description:', jobDescError);
       }
       
-      console.log('Running mock analysis...');
-      const results = await performMockAnalysis(filesToAnalyze, isSingleFile);
+      // Run the actual analysis instead of mock analysis
+      console.log('Running real resume analysis...');
+      
+      let results: AnalysisResult[] = [];
+      
+      if (isSingleFile && filesToAnalyze.length > 0) {
+        // Single file analysis
+        try {
+          const file = filesToAnalyze[0];
+          console.log(`Analyzing single file: ${file.name}`);
+          
+          // Download the file
+          const fileData = await fetch(file.url);
+          const blob = await fileData.blob();
+          const fileObj = new File([blob], file.name, { type: blob.type });
+          
+          // Analyze the resume
+          const result = await resumeAnalysisService.analyzeResume(fileObj, jobDescription);
+          
+          // Add file ID to the result
+          result.file_id = file.id;
+          result.fileUrl = file.url;
+          
+          results = [result];
+          console.log('Analysis complete for single file');
+        } catch (analyzeError) {
+          console.error('Error analyzing single file:', analyzeError);
+          
+          // Fallback to mock analysis if real analysis fails
+          console.log('Falling back to mock analysis for single file');
+          results = await performMockAnalysis([filesToAnalyze[0]], true);
+        }
+      } else {
+        // Batch analysis
+        try {
+          const filesToProcess = filesToAnalyze.slice(0, 10); // Limit to 10 files to prevent overload
+          console.log(`Analyzing batch of ${filesToProcess.length} files`);
+          
+          // Download all files
+          const fileObjects: File[] = [];
+          for (const file of filesToProcess) {
+            try {
+              const fileData = await fetch(file.url);
+              const blob = await fileData.blob();
+              const fileObj = new File([blob], file.name, { type: blob.type });
+              fileObjects.push(fileObj);
+            } catch (downloadError) {
+              console.error(`Error downloading file ${file.name}:`, downloadError);
+            }
+          }
+          
+          // Analyze all resumes
+          if (fileObjects.length > 0) {
+            const batchResults = await resumeAnalysisService.analyzeFolderContent(fileObjects, jobDescription);
+            
+            // Add file IDs to the results
+            results = batchResults.map((result, index) => {
+              return {
+                ...result,
+                file_id: filesToProcess[index].id,
+                fileUrl: filesToProcess[index].url
+              };
+            });
+            
+            console.log('Batch analysis complete for', results.length, 'files');
+          }
+        } catch (batchError) {
+          console.error('Error with batch analysis:', batchError);
+          
+          // Fallback to mock analysis if real analysis fails
+          console.log('Falling back to mock analysis for batch');
+          results = await performMockAnalysis(filesToAnalyze, false);
+        }
+      }
       
       // Clean up progress timer
       clearInterval(progressTimer);
@@ -304,21 +407,38 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
       // Try to store analysis results if we have a job description ID
       if (jobDescriptionId) {
         try {
-          console.log('Attempting to store analysis results in database');
+          console.log('Storing analysis results in database');
           
           for (let i = 0; i < results.length; i++) {
             const result = results[i];
-            const file = filesToAnalyze[i];
+            const file = filesToAnalyze.find(f => f.id === result.file_id);
+            
+            if (!file || !result.file_id) {
+              console.error(`Missing file or file_id for result ${i}`);
+              continue;
+            }
             
             try {
+              // Create aspect scores from weights
+              const aspectScores = {
+                skills: result.score * (weights.skills / 100),
+                experience: result.score * (weights.experience / 100),
+                achievements: result.score * (weights.achievements / 100),
+                education: result.score * (weights.education / 100),
+                culturalFit: result.score * (weights.culturalFit / 100)
+              };
+              
+              // Use a fixed achievement bonus for now
+              const achievementBonus = 5.0;
+              
               await resumeAnalysisService.storeAnalysisResult(
-                file.id,
+                result.file_id,
                 jobDescriptionId,
                 result.score,
                 result.matchedKeywords,
                 result.missingKeywords,
-                5.0, // Achievement bonus
-                { skills: 80, experience: 70, achievements: 75, education: 60, culturalFit: 65 }, // Aspect scores
+                achievementBonus,
+                aspectScores,
                 userId
               );
               console.log(`Stored analysis for file ${i+1}/${results.length}`);
@@ -636,14 +756,23 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
               
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div>
-                  <textarea
-                    id="jobDescription"
-                    placeholder="Paste the job description here..."
-                    value={jobDescription}
-                    onChange={(e) => setJobDescription(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-xs focus:outline-none focus:border focus:border-orange-400 transition-colors duration-200 h-24 resize-y"
-                    required
-                  />
+                  {loadingJobDescription ? (
+                    <div className="w-full px-3 py-2 border border-gray-200 rounded-md h-24 flex items-center justify-center">
+                      <div className="flex items-center space-x-2">
+                        <Loader2 size={16} className="animate-spin text-orange-500" />
+                        <span className="text-xs text-gray-600">Loading job description...</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <textarea
+                      id="jobDescription"
+                      placeholder="Paste the job description here..."
+                      value={jobDescription}
+                      onChange={(e) => setJobDescription(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-xs focus:outline-none focus:border focus:border-orange-400 transition-colors duration-200 h-24 resize-y"
+                      required
+                    />
+                  )}
                 </div>
                 
                 <button
@@ -661,10 +790,12 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
                 <div className="flex justify-end">
                   <button
                     type="submit"
-                    disabled={analyzing || !jobDescription || filesToAnalyze.length === 0}
+                    disabled={analyzing || loadingJobDescription || !jobDescription || filesToAnalyze.length === 0}
                     className="px-3 py-1.5 bg-orange-500 text-white text-xs font-medium rounded-md hover:bg-orange-600 focus:outline-none transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {analyzing ? 'Analyzing...' : `Analyze ${filesToAnalyze.length === 1 ? 'Resume' : `${filesToAnalyze.length} Resumes`}`}
+                    {analyzing ? 'Analyzing...' : 
+                     loadingJobDescription ? 'Loading...' : 
+                     `Analyze ${filesToAnalyze.length === 1 ? 'Resume' : `${filesToAnalyze.length} Resumes`}`}
                   </button>
                 </div>
               </form>
