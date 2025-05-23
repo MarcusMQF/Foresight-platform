@@ -13,6 +13,7 @@ const ResumeAnalysisResults: React.FC = () => {
   const [sortBy, setSortBy] = useState<'score' | 'filename'>('score');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [folderId, setFolderId] = useState<string | null>(null);
+  const [folderName, setFolderName] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [resultToDelete, setResultToDelete] = useState<AnalysisResult | null>(null);
@@ -26,110 +27,159 @@ const ResumeAnalysisResults: React.FC = () => {
       console.log('Loading analysis results...');
       
       // Get data from localStorage
-      const storedResults = localStorage.getItem('resumeAnalysisResults');
       const storedFolderId = localStorage.getItem('currentFolderId');
       
-      let localResults: AnalysisResult[] = [];
-      if (storedResults) {
-        try {
-          localResults = JSON.parse(storedResults) as AnalysisResult[];
-          console.log('Loaded from localStorage:', localResults.length, 'results');
-          console.log('localStorage file IDs:', localResults.map(r => r.file_id).join(', '));
-        } catch (error) {
-          console.error('Error parsing stored results:', error);
-        }
+      if (!storedFolderId) {
+        console.log('No folder ID found, redirecting to documents');
+        setLoading(false);
+        navigate('/documents');
+        return;
       }
       
-      if (storedFolderId) {
-        setFolderId(storedFolderId);
-        console.log('Current folder ID:', storedFolderId);
-        
-        // Save folder ID to localStorage to ensure it's available for navigation
-        localStorage.setItem('currentFolderId', storedFolderId);
-        
-        try {
-          // Direct database query instead of using the RPC function
-          console.log('Querying database for analysis results...');
+      setFolderId(storedFolderId);
+      console.log('Current folder ID:', storedFolderId);
+      
+      // Get folder name
+      try {
+        const { data: folder, error: folderError } = await supabase
+          .from('folders')
+          .select('name')
+          .eq('id', storedFolderId)
+          .single();
           
-          const { data: dbData, error: dbError } = await supabase
-            .from('files_with_analysis')
-            .select('*')
-            .eq('folder_id', storedFolderId)
-            .not('analysis_id', 'is', null);
-          
-          if (dbError) {
-            console.error('Error querying database:', dbError);
-            throw dbError;
-          }
-          
-          // Transform database results to match our AnalysisResult interface
-          const dbResults: AnalysisResult[] = dbData
-            .filter(item => item.match_score !== null)
-            .map(item => ({
-              id: item.analysis_id, // Use the analysis_id as the id
-              file_id: item.file_id,
-              filename: item.file_name,
-              score: item.match_score,
-              matchedKeywords: item.strengths ? JSON.parse(item.strengths) : [],
-              missingKeywords: item.weaknesses ? JSON.parse(item.weaknesses) : [],
-              recommendations: [],
-              analyzed_at: item.analyzed_at
-            }));
-          
-          console.log('Loaded from database:', dbResults.length, 'results');
-          console.log('Database file IDs:', dbResults.map(r => r.file_id).join(', '));
-          
-          // Create a map from all results (both localStorage and database)
-          const combinedMap = new Map<string, AnalysisResult>();
-          
-          // First add all database results to the map
-          dbResults.forEach(result => {
-            if (result.file_id) {
-              combinedMap.set(result.file_id, result);
-            }
-          });
-          
-          // Then override with localStorage results which are more recent
-          localResults.forEach(result => {
-            if (result.file_id) {
-              combinedMap.set(result.file_id, result);
-            }
-          });
-          
-          // Convert map back to array
-          const combinedResults = Array.from(combinedMap.values());
-          console.log('Combined results:', combinedResults.length, 'total files');
-          console.log('Combined file IDs:', combinedResults.map(r => r.file_id).join(', '));
-          
-          if (combinedResults.length > 0) {
-            setResults(combinedResults);
-          } else {
-            console.log('No results found, redirecting back to documents');
-            navigate(`/documents/${storedFolderId}`);
-          }
-        } catch (error) {
-          console.error('Error loading analysis results from database:', error);
-          // Fall back to localStorage results
-          if (localResults.length > 0) {
-            setResults(localResults);
-          } else {
-            // If no results found, redirect back to documents
-            console.log('No results available, redirecting back to documents');
-            navigate(`/documents/${storedFolderId}`);
-          }
+        if (folderError) {
+          console.error('Error fetching folder name:', folderError);
+        } else if (folder) {
+          setFolderName(folder.name);
+          console.log('Folder name:', folder.name);
         }
-      } else {
-        // No folder ID, just use localStorage results
-        if (localResults.length > 0) {
-          setResults(localResults);
-        } else {
-          // No results found, redirect back to documents
-          console.log('No folder ID, redirecting back to documents');
-          navigate('/documents');
-        }
+      } catch (folderError) {
+        console.error('Error fetching folder name:', folderError);
       }
       
-      setLoading(false);
+      try {
+        console.log('Starting direct query approach for folder:', storedFolderId);
+        
+        // Get all files in this folder
+        const { data: files, error: filesError } = await supabase
+          .from('files')
+          .select('id, name, folderId')
+          .eq('folderId', storedFolderId);
+        
+        if (filesError) {
+          console.error('Error getting files:', filesError);
+          setLoading(false);
+          setResults([]);
+          return;
+        }
+        
+        if (!files || files.length === 0) {
+          console.log('No files found in this folder');
+          setLoading(false);
+          setResults([]);
+          return;
+        }
+        
+        console.log(`Found ${files.length} files in folder`);
+        
+        // Get file IDs
+        const fileIds = files.map(f => f.id);
+        
+        // Get all analysis results for these files
+        const { data: analysisResults, error: analysisError } = await supabase
+          .from('analysis_results')
+          .select('*')
+          .in('file_id', fileIds);
+        
+        if (analysisError) {
+          console.error('Error getting analysis results:', analysisError);
+          setLoading(false);
+          setResults([]);
+          return;
+        }
+        
+        console.log(`Found ${analysisResults?.length || 0} analysis results`);
+        
+        if (!analysisResults || analysisResults.length === 0) {
+          console.log('No analysis results found for files in this folder');
+          setLoading(false);
+          setResults([]);
+          return;
+        }
+        
+        // Create a map of file ID to file name for easy lookup
+        const fileMap = new Map();
+        files.forEach(file => {
+          fileMap.set(file.id, file.name);
+        });
+        
+        // Transform analysis results to match our AnalysisResult interface
+        const transformedResults: AnalysisResult[] = analysisResults.map(result => {
+          // Get the file name from the map
+          const fileName = fileMap.get(result.file_id) || 'Unknown File';
+          
+          // Parse strengths and weaknesses
+          let matchedKeywords = [];
+          let missingKeywords = [];
+          
+          try {
+            if (typeof result.strengths === 'string') {
+              matchedKeywords = JSON.parse(result.strengths);
+            } else if (Array.isArray(result.strengths)) {
+              matchedKeywords = result.strengths;
+            } else if (result.strengths && typeof result.strengths === 'object') {
+              // It might be already a parsed object
+              matchedKeywords = Object.values(result.strengths);
+            }
+          } catch (e) {
+            console.error('Error parsing strengths:', e);
+          }
+          
+          try {
+            if (typeof result.weaknesses === 'string') {
+              missingKeywords = JSON.parse(result.weaknesses);
+            } else if (Array.isArray(result.weaknesses)) {
+              missingKeywords = result.weaknesses;
+            } else if (result.weaknesses && typeof result.weaknesses === 'object') {
+              // It might be already a parsed object
+              missingKeywords = Object.values(result.weaknesses);
+            }
+          } catch (e) {
+            console.error('Error parsing weaknesses:', e);
+          }
+          
+          return {
+            id: result.id,
+            file_id: result.file_id,
+            folder_id: storedFolderId,
+            filename: fileName,
+            score: result.match_score,
+            matchedKeywords,
+            missingKeywords,
+            recommendations: [],
+            analyzed_at: result.created_at
+          };
+        });
+        
+        console.log('Final transformed results:', transformedResults.length);
+        
+        // Save to folder-specific localStorage for future reference
+        try {
+          const folderAnalyzedFilesKey = `analyzed_files_${storedFolderId}`;
+          const analyzedFileIds = transformedResults.map(r => r.file_id).filter(id => id !== undefined) as string[];
+          localStorage.setItem(folderAnalyzedFilesKey, JSON.stringify(analyzedFileIds));
+        } catch (storageError) {
+          console.error('Error updating folder-specific localStorage:', storageError);
+        }
+        
+        // Set results
+        setResults(transformedResults);
+      } catch (error) {
+        console.error('Error in direct query approach:', error);
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadResults();
@@ -198,9 +248,6 @@ const ResumeAnalysisResults: React.FC = () => {
     setDeleting(true);
     
     try {
-      // Flag to track if the result was successfully deleted
-      let isDeleted = false;
-      
       // Get current user ID
       let userId = 'temp_user_id';
       try {
@@ -212,75 +259,91 @@ const ResumeAnalysisResults: React.FC = () => {
         console.error('Auth error:', authError);
       }
       
-      // If the result has an ID, try to delete it from the database
+      console.log(`Attempting to delete analysis result:`, resultToDelete);
+      
+      // Check if we have an ID and file_id
+      if (!resultToDelete.id && !resultToDelete.file_id) {
+        console.error('Cannot delete: Both ID and file_id are missing');
+        alert('Could not delete analysis result: Missing ID information');
+        return;
+      }
+      
+      let success = false;
+      
+      // Try to delete by analysis ID first
       if (resultToDelete.id) {
-        try {
-          console.log(`Attempting to delete analysis result ID: ${resultToDelete.id} for file: ${resultToDelete.filename}`);
+        console.log(`Deleting by analysis ID: ${resultToDelete.id}`);
+        const result = await atsService.deleteAnalysisResult(resultToDelete.id, userId);
+        success = result.success;
           
-          // Step 1: Delete from analysis_results table
-          const { success, fileId } = await atsService.deleteAnalysisResult(resultToDelete.id, userId);
-          
-          if (success) {
-            console.log(`Successfully deleted analysis result from database for file: ${resultToDelete.filename}`);
-            
-            // Step 2: Force refresh the file's analysis status
-            if (fileId) {
-              console.log(`Refreshing analysis status for file ID: ${fileId}`);
-              await atsService.refreshFileAnalysisStatus(fileId, userId);
-            } else if (resultToDelete.file_id) {
-              // Fallback to using file_id from resultToDelete
-              console.log(`Refreshing analysis status for file ID (fallback): ${resultToDelete.file_id}`);
-              await atsService.refreshFileAnalysisStatus(resultToDelete.file_id, userId);
-            }
-            
-            isDeleted = true;
-          } else {
-            console.log('Database delete failed, will try localStorage only');
-          }
-        } catch (dbError) {
-          console.error('Database error while deleting:', dbError);
-          console.log('Continuing with localStorage delete');
-        }
-      } else {
-        console.log('No database ID for this result, deleting from localStorage only');
-      }
-      
-      // Whether database delete succeeded or not, also remove from localStorage
-      // This ensures we clean up localStorage entries that might not be in the database
-      const storedResults = localStorage.getItem('resumeAnalysisResults');
-      if (storedResults) {
-        try {
-          const parsedResults = JSON.parse(storedResults) as AnalysisResult[];
-          const updatedResults = parsedResults.filter(r => 
-            r.file_id !== resultToDelete.file_id && 
-            r.filename !== resultToDelete.filename
-          );
-          
-          // Update localStorage with filtered results
-          localStorage.setItem('resumeAnalysisResults', JSON.stringify(updatedResults));
-          console.log(`Removed result from localStorage: ${resultToDelete.filename}`);
-          isDeleted = true;
-        } catch (error) {
-          console.error('Error updating localStorage:', error);
+        if (success) {
+          console.log(`Successfully deleted analysis result by ID`);
+        } else {
+          console.log(`Failed to delete by ID, will try file_id fallback if available`);
         }
       }
       
-      if (isDeleted) {
-        // Update the UI state to remove the deleted item
-        setResults(prevResults => prevResults.filter(r => 
-          (r.file_id !== resultToDelete.file_id) && 
-          (r.id !== resultToDelete.id || r.filename !== resultToDelete.filename)
-        ));
+      // If ID delete failed or ID wasn't available, try deleting by file_id
+      if (!success && resultToDelete.file_id) {
+        console.log(`Deleting by file_id: ${resultToDelete.file_id}`);
+        success = await atsService.deleteFileAnalysis(resultToDelete.file_id, userId);
         
-        console.log(`Successfully deleted analysis result for file: ${resultToDelete.filename}`);
+        if (success) {
+          console.log(`Successfully deleted analysis result by file_id`);
+        } else {
+          console.log(`Failed to delete by file_id as well`);
+        }
+      }
+      
+      if (success) {
+        // Update the UI state to remove ONLY the deleted item
+        setResults(prevResults => prevResults.filter(r => {
+          // Keep all items EXCEPT the one we just deleted
+          // If we deleted by ID, filter out only that ID
+          if (resultToDelete.id && r.id === resultToDelete.id) {
+            return false;
+          }
+          // If we deleted by file_id, filter out only that file_id
+          if (resultToDelete.file_id && r.file_id === resultToDelete.file_id) {
+            return false;
+          }
+          // Otherwise keep the result
+          return true;
+        }));
+        
+        // Update folder-specific cache
+        if (folderId && resultToDelete.file_id) {
+          try {
+            const folderAnalyzedFilesKey = `analyzed_files_${folderId}`;
+            const folderCacheStr = localStorage.getItem(folderAnalyzedFilesKey);
+            
+            if (folderCacheStr) {
+              const folderCache = JSON.parse(folderCacheStr) as string[];
+              const updatedCache = folderCache.filter(id => id !== resultToDelete.file_id);
+              localStorage.setItem(folderAnalyzedFilesKey, JSON.stringify(updatedCache));
+              console.log(`Updated folder-specific cache: removed ${resultToDelete.file_id}`);
+            }
+          } catch (cacheError) {
+            console.error('Error updating folder cache:', cacheError);
+          }
+        }
+        
+        // Check if we have any results left after deletion
+        setTimeout(() => {
+          if (results.length <= 1) {
+            console.log('Last result deleted, redirecting back to files');
+            returnToFiles();
+          }
+        }, 500);
       } else {
-        console.error('Failed to delete analysis result from any storage');
+        console.error('Failed to delete analysis result from database');
         alert('Failed to delete analysis result. Please try again.');
       }
     } catch (error) {
       console.error('Error deleting analysis result:', error);
       alert('Error deleting analysis result: ' + String(error));
     } finally {
+      // Make sure we always reset the UI state
       setDeleting(false);
       setDeleteConfirmOpen(false);
       setResultToDelete(null);
@@ -332,65 +395,75 @@ const ResumeAnalysisResults: React.FC = () => {
         
         <div className="bg-white rounded border border-gray-200 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-gray-200 bg-gray-50">
-            <h3 className="text-xs font-medium text-gray-800">Resume Analysis Results</h3>
+            <h3 className="text-xs font-medium text-gray-800">
+              Resume Analysis Results {folderName && `- ${folderName}`}
+            </h3>
             <p className="text-xs text-gray-500 mt-1">
               {results.length} {results.length === 1 ? 'resume' : 'resumes'} analyzed against the job description
             </p>
           </div>
           
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <button 
-                      className="flex items-center focus:outline-none"
-                      onClick={() => toggleSort('filename')}
-                    >
-                      RESUME
-                      {sortBy === 'filename' && (
-                        sortOrder === 'asc' ? 
-                          <ArrowUp size={14} className="ml-1" /> : 
-                          <ArrowDown size={14} className="ml-1" />
-                      )}
-                    </button>
-                  </th>
-                  <th className="pr-9 pl-7 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <button 
-                      className="flex items-center justify-center mx-auto"
-                      onClick={() => toggleSort('score')}
-                    >
-                      MATCH SCORE
-                      {sortBy === 'score' && (
-                        sortOrder === 'asc' ? 
-                          <ArrowUp size={14} className="ml-1" /> : 
-                          <ArrowDown size={14} className="ml-1" />
-                      )}
-                    </button>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Matched Keywords
-                  </th>
-                  <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <div className="flex justify-end pr-[30px]">ACTIONS</div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {loading ? (
+            {loading ? (
+              <div className="p-8 text-center">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mb-3"></div>
+                <p className="text-sm text-gray-500">Loading analysis results...</p>
+              </div>
+            ) : results.length === 0 ? (
+              <div className="p-8 text-center">
+                <div className="inline-block rounded-full p-3 bg-gray-100 mb-3">
+                  <FileText size={24} className="text-gray-400" />
+                </div>
+                <p className="text-sm text-gray-700 font-medium mb-1">No analysis results found for this folder</p>
+                <p className="text-xs text-gray-500 mb-4">Analyze some resumes in this folder to see results here.</p>
+                <button
+                  onClick={returnToFiles}
+                  className="px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded hover:bg-primary-600 transition-colors duration-200 inline-flex items-center"
+                >
+                  <ArrowLeft size={14} className="mr-1.5" />
+                  Return to Files
+                </button>
+              </div>
+            ) : (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
                   <tr>
-                    <td colSpan={4} className="px-6 py-4 text-center text-xs text-gray-500">
-                      Loading analysis results...
-                    </td>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <button 
+                        className="flex items-center focus:outline-none"
+                        onClick={() => toggleSort('filename')}
+                      >
+                        RESUME
+                        {sortBy === 'filename' && (
+                          sortOrder === 'asc' ? 
+                            <ArrowUp size={14} className="ml-1" /> : 
+                            <ArrowDown size={14} className="ml-1" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="pr-9 pl-7 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <button 
+                        className="flex items-center justify-center mx-auto"
+                        onClick={() => toggleSort('score')}
+                      >
+                        MATCH SCORE
+                        {sortBy === 'score' && (
+                          sortOrder === 'asc' ? 
+                            <ArrowUp size={14} className="ml-1" /> : 
+                            <ArrowDown size={14} className="ml-1" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Matched Keywords
+                    </th>
+                    <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <div className="flex justify-end pr-[30px]">ACTIONS</div>
+                    </th>
                   </tr>
-                ) : sortedResults.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-6 py-4 text-center text-xs text-gray-500">
-                      No results found
-                    </td>
-                  </tr>
-                ) : (
-                  sortedResults.map((result, index) => (
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {sortedResults.map((result, index) => (
                     <tr key={index} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -438,10 +511,10 @@ const ResumeAnalysisResults: React.FC = () => {
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
       </div>
@@ -459,7 +532,7 @@ const ResumeAnalysisResults: React.FC = () => {
           Back to Files
         </button>
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-1">
-          ATS Analysis Results
+          ATS Analysis Results {folderName && `for ${folderName}`}
         </h1>
         <p className="text-gray-500">
           View and compare resume matches against the job description

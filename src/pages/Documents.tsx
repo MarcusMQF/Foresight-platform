@@ -173,61 +173,38 @@ const Documents: React.FC = () => {
           const folderFiles = await documentsService.getFiles(folderId);
           setFiles(folderFiles);
           
-          // Check if we have cached analyzed file IDs for this folder
-          const cachedAnalyzedFileIds = localStorage.getItem(`analyzed_files_${folderId}`);
-          if (cachedAnalyzedFileIds) {
+          // Always check for analyzed files from the database
+          console.log('Checking for analyzed files in folder:', folderId);
+          try {
+            // Get current user ID
+            let userId = TEMP_USER_ID;
             try {
-              // Use the cached IDs as an initial value to prevent flickering
-              const parsedIds = JSON.parse(cachedAnalyzedFileIds);
-              // Filter to only include IDs that exist in the current files list
-              const fileIdMap = new Map(folderFiles.map(file => [file.id, true]));
-              const validIds = parsedIds.filter((id: string) => fileIdMap.has(id));
-              
-              if (validIds.length > 0) {
-                setAnalyzedFileIds(validIds);
-                setHasAnalysisResults(true);
+              const { data: { user }, error } = await supabase.auth.getUser();
+              if (!error && user) {
+                userId = user.id;
               }
-            } catch (parseError) {
-              console.error('Error parsing cached analyzed file IDs:', parseError);
+            } catch (authError) {
+              console.error('Auth error:', authError);
             }
-          }
-          
-          // Wait for the next tick to ensure analyzedFileIds state is properly initialized
-          setTimeout(() => {
-            const storedFolderId = localStorage.getItem('currentFolderId');
-            const storedResults = localStorage.getItem('resumeAnalysisResults');
             
-            // Check if analysis results exist for this folder
-            if (storedFolderId === folderId && storedResults) {
+            // Get analyzed files from the database
+            const analyzedFiles = await resumeAnalysisService.getAnalyzedFilesInFolder(folderId);
+            console.log('Found analyzed files:', analyzedFiles.length);
+            
+            if (analyzedFiles.length > 0) {
+              setAnalyzedFileIds(analyzedFiles);
               setHasAnalysisResults(true);
               
-              try {
-                const parsedResults = JSON.parse(storedResults);
-                const localStorageFileIds = parsedResults
-                  .filter((result: any) => result.file_id)
-                  .map((result: any) => result.file_id);
-                
-                resumeAnalysisService.getAnalyzedFilesInFolder(folderId)
-                  .then(databaseFileIds => {
-                    const combinedFileIds = Array.from(new Set([...databaseFileIds, ...localStorageFileIds]));
-                    setAnalyzedFileIds(combinedFileIds);
-                  });
-              } catch (parseError) {
-                console.error('Error parsing localStorage results:', parseError);
-                
-                resumeAnalysisService.getAnalyzedFilesInFolder(folderId)
-                  .then(analyzedFiles => {
-                    setAnalyzedFileIds(analyzedFiles);
-                  });
-              }
+              // Update the folder-specific cache
+              const folderAnalyzedFilesKey = `analyzed_files_${folderId}`;
+              localStorage.setItem(folderAnalyzedFilesKey, JSON.stringify(analyzedFiles));
             } else {
-              resumeAnalysisService.getAnalyzedFilesInFolder(folderId)
-                .then(analyzedFiles => {
-                  setAnalyzedFileIds(analyzedFiles);
-                  setHasAnalysisResults(analyzedFiles.length > 0);
-                });
+              setAnalyzedFileIds([]);
+              setHasAnalysisResults(false);
             }
-          }, 0);
+          } catch (analyzedFilesError) {
+            console.error('Error getting analyzed files:', analyzedFilesError);
+          }
         } else {
           // Otherwise, fetch all folders
           const userFolders = await documentsService.getFolders(TEMP_USER_ID);
@@ -251,58 +228,74 @@ const Documents: React.FC = () => {
     // Function to refresh analyzed file IDs
     const refreshAnalyzedFileIds = async () => {
       try {
-        // Get local storage data
-        const storedFolderId = localStorage.getItem('currentFolderId');
-        const storedResults = localStorage.getItem('resumeAnalysisResults');
+        // Check if we have folder-specific localStorage data first
+        const folderAnalyzedFilesKey = `analyzed_files_${folderId}`;
+        let folderAnalyzedFiles: string[] = [];
         
-        // Get database file IDs first to ensure we have the most up-to-date data
-        const databaseFileIds = await resumeAnalysisService.getAnalyzedFilesInFolder(folderId);
+        try {
+          const storedFolderData = localStorage.getItem(folderAnalyzedFilesKey);
+          if (storedFolderData) {
+            folderAnalyzedFiles = JSON.parse(storedFolderData);
+            console.log(`Found cached analyzed files for folder ${folderId}:`, folderAnalyzedFiles.length);
+          }
+        } catch (parseError) {
+          console.error('Error parsing folder-specific analyzed files:', parseError);
+        }
         
-        // Check if we have any stored IDs in our ref
-        const refIds = analyzedFileIdsRef.current[folderId] || [];
-        
-        // Prepare array to collect file IDs from all sources
-        let combinedFileIds = [...databaseFileIds, ...refIds];
-        
-        // Check local storage if we have results for this folder
-        if (storedFolderId === folderId && storedResults) {
-          try {
-            const parsedResults = JSON.parse(storedResults);
-            const localStorageFileIds = parsedResults
-              .filter((result: any) => result.file_id)
-              .map((result: any) => result.file_id);
-            
-            // Add local storage IDs that aren't already in the combined list
-            localStorageFileIds.forEach((id: string) => {
-              if (!combinedFileIds.includes(id)) {
-                combinedFileIds.push(id);
-              }
-            });
-          } catch (parseError) {
-            console.error('Error parsing stored results:', parseError);
+        // First check the folder-specific cache
+        if (folderAnalyzedFiles.length > 0) {
+          // Verify these files still exist in the current folder
+          const fileIdMap = new Map(files.map(file => [file.id, true]));
+          const validIds = folderAnalyzedFiles.filter(id => fileIdMap.has(id));
+          
+          if (validIds.length > 0) {
+            setAnalyzedFileIds(validIds);
+            setHasAnalysisResults(true);
+            console.log('Set analyzed files from folder-specific cache:', validIds.length);
+            return;
           }
         }
         
-        // Remove duplicates
-        combinedFileIds = Array.from(new Set(combinedFileIds));
-        
-        // Update state if different from current state
-        if (combinedFileIds.length > 0) {
-          setAnalyzedFileIds(prev => {
-            // Sort both arrays for accurate comparison
-            const prevSorted = [...prev].sort();
-            const newSorted = [...combinedFileIds].sort();
-            
-            // Only update if there's a difference
-            if (JSON.stringify(prevSorted) !== JSON.stringify(newSorted)) {
-              // Save to ref for persistence
-              analyzedFileIdsRef.current[folderId] = combinedFileIds;
-              return combinedFileIds;
-            }
-            return prev;
-          });
+        // If no cache, get the data from the database
+        const databaseFileIds = await resumeAnalysisService.getAnalyzedFilesInFolder(folderId);
+        if (databaseFileIds.length > 0) {
+          setAnalyzedFileIds(databaseFileIds);
+          setHasAnalysisResults(true);
           
-          setHasAnalysisResults(combinedFileIds.length > 0);
+          // Update the folder-specific cache
+          localStorage.setItem(folderAnalyzedFilesKey, JSON.stringify(databaseFileIds));
+          console.log('Updated folder-specific cache with database results:', databaseFileIds.length);
+        } else {
+          // Check if we still have data in localStorage for this specific folder
+          const storedResults = localStorage.getItem('resumeAnalysisResults');
+          if (storedResults) {
+            try {
+              const allResults = JSON.parse(storedResults);
+              const folderResults = allResults.filter((r: any) => r.folder_id === folderId);
+              if (folderResults.length > 0) {
+                const localStorageFileIds = folderResults
+                  .filter((result: any) => result.file_id)
+                  .map((result: any) => result.file_id);
+                
+                setAnalyzedFileIds(localStorageFileIds);
+                setHasAnalysisResults(localStorageFileIds.length > 0);
+                
+                // Update the folder-specific cache
+                localStorage.setItem(folderAnalyzedFilesKey, JSON.stringify(localStorageFileIds));
+                console.log('Updated folder-specific cache with localStorage results:', localStorageFileIds.length);
+              } else {
+                setAnalyzedFileIds([]);
+                setHasAnalysisResults(false);
+              }
+            } catch (parseError) {
+              console.error('Error parsing localStorage results:', parseError);
+              setAnalyzedFileIds([]);
+              setHasAnalysisResults(false);
+            }
+          } else {
+            setAnalyzedFileIds([]);
+            setHasAnalysisResults(false);
+          }
         }
       } catch (error) {
         console.error('Error refreshing analyzed file IDs:', error);
@@ -326,10 +319,11 @@ const Documents: React.FC = () => {
         setAnalyzedFileIds(prev => {
           if (prev.includes(fileId)) return prev;
           const newIds = [...prev, fileId];
-          // Also update our ref for persistence
-          if (folderId) {
-            analyzedFileIdsRef.current[folderId] = newIds;
-          }
+          
+          // Also update folder-specific cache
+          const folderAnalyzedFilesKey = `analyzed_files_${folderId}`;
+          localStorage.setItem(folderAnalyzedFilesKey, JSON.stringify(newIds));
+          
           return newIds;
         });
         setHasAnalysisResults(true);
@@ -337,10 +331,11 @@ const Documents: React.FC = () => {
         // Remove file from analyzed files list
         setAnalyzedFileIds(prev => {
           const newIds = prev.filter(id => id !== fileId);
-          // Also update our ref for persistence
-          if (folderId) {
-            analyzedFileIdsRef.current[folderId] = newIds;
-          }
+          
+          // Also update folder-specific cache
+          const folderAnalyzedFilesKey = `analyzed_files_${folderId}`;
+          localStorage.setItem(folderAnalyzedFilesKey, JSON.stringify(newIds));
+          
           setHasAnalysisResults(newIds.length > 0);
           return newIds;
         });
@@ -359,7 +354,7 @@ const Documents: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('fileAnalysisStatusChanged', handleFileAnalysisStatusChanged as EventListener);
     };
-  }, [folderId, files]); // Add files dependency to ensure we filter against current files
+  }, [folderId, files]);
 
   // Filter folders based on search query when not in a folder
   const filteredFolders = folders.filter(folder =>
@@ -661,7 +656,13 @@ const Documents: React.FC = () => {
 
   // Handle view analysis results
   const handleViewAnalysisResults = () => {
-    navigate('/resume-analysis-results');
+    // Always navigate to the results page
+    // The results page will handle showing an empty state if there are no results
+    if (folderId) {
+      navigate('/resume-analysis-results');
+    } else {
+      navigate('/documents');
+    }
   };
 
   // Open ATS Checker dialog

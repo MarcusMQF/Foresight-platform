@@ -5,6 +5,7 @@ import { ATSService } from './ats.service';
 export interface AnalysisResult {
   id?: string;
   file_id?: string;
+  folder_id?: string;
   filename: string;
   fileUrl?: string;
   score: number;
@@ -192,11 +193,13 @@ export class ResumeAnalysisService {
         console.error('Auth error:', authError);
       }
       
+      console.log(`Getting analyzed files for folder: ${folderId}, user: ${userId}`);
+      
+      // Use view-based query which is more reliable
       const { data, error } = await supabase
         .from('files_with_analysis')
         .select('file_id')
         .eq('folder_id', folderId)
-        .eq('user_id', userId)
         .not('analysis_id', 'is', null);
       
       if (error) {
@@ -208,9 +211,12 @@ export class ResumeAnalysisService {
         file_id: string;
       }
       
-      return (data as AnalyzedFileResult[])
+      const fileIds = (data as AnalyzedFileResult[])
         .filter((item: AnalyzedFileResult) => item && item.file_id)
         .map((item: AnalyzedFileResult) => item.file_id);
+      
+      console.log(`Found ${fileIds.length} analyzed files in folder ${folderId}`);
+      return fileIds;
     } catch (error) {
       console.error('Error in getAnalyzedFilesInFolder:', error);
       return [];

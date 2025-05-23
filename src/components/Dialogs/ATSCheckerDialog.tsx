@@ -249,7 +249,8 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
       ],
       filename: file.name,
       fileUrl: file.url,
-      file_id: file.id
+      file_id: file.id,
+      folder_id: folderId // Add folder_id to each result
     }));
     
     console.log('Mock analysis completed successfully');
@@ -462,6 +463,21 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
         try {
           console.log('Storing results in localStorage');
           
+          // Save results to the folder-specific localStorage for immediate UI update
+          if (folderId) {
+            try {
+              const folderAnalyzedFilesKey = `analyzed_files_${folderId}`;
+              const fileIds = results
+                .filter(r => r.file_id)
+                .map(r => r.file_id) as string[];
+              
+              localStorage.setItem(folderAnalyzedFilesKey, JSON.stringify(fileIds));
+              console.log(`Updated folder-specific analyzed files cache with ${fileIds.length} files`);
+            } catch (cacheError) {
+              console.error('Error updating folder-specific cache:', cacheError);
+            }
+          }
+          
           // Load existing results if any
           const existingResultsStr = localStorage.getItem('resumeAnalysisResults');
           let existingResults: AnalysisResult[] = [];
@@ -477,16 +493,20 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           // Create a map to easily update or add new results
           const resultsMap = new Map<string, AnalysisResult>();
           
-          // Add existing results to the map
+          // Add existing results to the map (keeping only results from other folders)
           existingResults.forEach(result => {
             if (result.file_id) {
+              // Add all results to the map, including from current folder
+              // Results from current folder will be overwritten with new results
               resultsMap.set(result.file_id, result);
             }
           });
           
-          // Add or update with new results
+          // Add or update with new results, ensuring they have the folder_id
           results.forEach(result => {
             if (result.file_id) {
+              // Ensure each result has the current folder_id
+              result.folder_id = folderId;
               resultsMap.set(result.file_id, result);
             }
           });
@@ -494,6 +514,13 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           // Convert map back to array
           const combinedResults = Array.from(resultsMap.values());
           console.log('Combined results count:', combinedResults.length);
+          console.log('Results by folder:', 
+            combinedResults.reduce((acc, r) => {
+              const fid = r.folder_id || 'unknown';
+              acc[fid] = (acc[fid] || 0) + 1;
+              return acc;
+            }, {} as Record<string, number>)
+          );
           
           // Store the combined results
           localStorage.setItem('resumeAnalysisResults', JSON.stringify(combinedResults));

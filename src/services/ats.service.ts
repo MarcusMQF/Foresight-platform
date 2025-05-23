@@ -192,7 +192,6 @@ export class ATSService {
         .from('analysis_results')
         .select('file_id')
         .eq('id', analysisId)
-        .eq('userId', userId)
         .single();
       
       if (fetchError) {
@@ -201,20 +200,76 @@ export class ATSService {
       }
       
       const fileId = analysisData?.file_id;
+
+      if (!fileId) {
+        console.error('No file_id found for analysis result');
+        return { success: false };
+      }
       
-      // Now delete the analysis result
-      const { error } = await supabase
-        .from('analysis_results')
-        .delete()
-        .eq('id', analysisId)
-        .eq('userId', userId);
+      // Use the delete_analysis_by_id function
+      const { data, error } = await supabase
+        .rpc('delete_analysis_by_id', {
+          p_analysis_id: analysisId
+        });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error using delete_analysis_by_id:', error);
+        
+        // Fallback to direct delete if RPC fails
+        const { error: deleteError } = await supabase
+          .from('analysis_results')
+          .delete()
+          .eq('id', analysisId);
+        
+        if (deleteError) {
+          console.error('Error with fallback delete:', deleteError);
+          return { success: false };
+        }
+      }
+      
+      // After delete, force a refresh of the analysis status
+      await this.refreshFileAnalysisStatus(fileId, userId);
       
       return { success: true, fileId };
     } catch (error) {
       console.error('Error deleting analysis result:', error);
       return { success: false };
+    }
+  }
+
+  /**
+   * Delete all analysis results for a file
+   */
+  async deleteFileAnalysis(fileId: string, userId: string): Promise<boolean> {
+    try {
+      // Use the delete_file_analysis function
+      const { data, error } = await supabase
+        .rpc('delete_file_analysis', {
+          p_file_id: fileId
+        });
+      
+      if (error) {
+        console.error('Error using delete_file_analysis:', error);
+        
+        // Fallback to direct delete if RPC fails
+        const { error: deleteError } = await supabase
+          .from('analysis_results')
+          .delete()
+          .eq('file_id', fileId);
+        
+        if (deleteError) {
+          console.error('Error with fallback delete:', deleteError);
+          return false;
+        }
+      }
+      
+      // After delete, force a refresh of the analysis status
+      await this.refreshFileAnalysisStatus(fileId, userId);
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting all analysis for file:', error);
+      return false;
     }
   }
 
@@ -263,36 +318,124 @@ export class ATSService {
    */
   async refreshFileAnalysisStatus(fileId: string, userId: string): Promise<void> {
     try {
+      console.log(`Refreshing analysis status for file ID: ${fileId}`);
+      
       // Check if the file has any analysis results
       const { count, error } = await supabase
         .from('analysis_results')
         .select('id', { count: 'exact', head: true })
-        .eq('file_id', fileId)
-        .eq('userId', userId);
+        .eq('file_id', fileId);
       
       if (error) {
         console.error('Error checking file analysis status:', error);
         return;
       }
       
-      // Log the status for debugging
-      console.log(`File ${fileId} has ${count || 0} analysis results`);
-      
-      // Optionally, you could update a flag in the files table to indicate if the file has been analyzed
-      // This would be useful if the files_with_analysis view isn't updating properly
+      const isAnalyzed = count !== null && count > 0;
+      console.log(`File ${fileId} has ${count || 0} analysis results, isAnalyzed=${isAnalyzed}`);
+
+      // Get folder ID for this file to manage folder-specific analysis flags
+      const { data: fileData, error: fileError } = await supabase
+        .from('files')
+        .select('folderId')
+        .eq('id', fileId)
+        .single();
+        
+      if (fileError) {
+        console.error('Error getting file folder ID:', fileError);
+      } else if (fileData?.folderId) {
+        const folderId = fileData.folderId;
+        
+        // Update the folder-specific analyzed files list in localStorage
+        try {
+          const folderAnalyzedFilesKey = `analyzed_files_${folderId}`;
+          let folderAnalyzedFiles: string[] = [];
+          
+          try {
+            const existingData = localStorage.getItem(folderAnalyzedFilesKey);
+            if (existingData) {
+              folderAnalyzedFiles = JSON.parse(existingData);
+            }
+          } catch (parseError) {
+            console.error(`Error parsing ${folderAnalyzedFilesKey}:`, parseError);
+          }
+          
+          if (isAnalyzed && !folderAnalyzedFiles.includes(fileId)) {
+            // Add the file ID if it's now analyzed
+            folderAnalyzedFiles.push(fileId);
+          } else if (!isAnalyzed) {
+            // Remove the file ID if it's no longer analyzed
+            folderAnalyzedFiles = folderAnalyzedFiles.filter(id => id !== fileId);
+          }
+          
+          localStorage.setItem(folderAnalyzedFilesKey, JSON.stringify(folderAnalyzedFiles));
+          console.log(`Updated folder-specific localStorage for folder ${folderId}, file ${fileId}: ${isAnalyzed}`);
+        } catch (localStorageError) {
+          console.error('Error updating folder-specific localStorage:', localStorageError);
+        }
+      }
       
       // Dispatch an event to update the UI
       if (typeof window !== 'undefined') {
         const event = new CustomEvent('fileAnalysisStatusChanged', {
           detail: {
             fileId,
-            isAnalyzed: count !== null && count > 0
+            isAnalyzed
           }
         });
         window.dispatchEvent(event);
+        console.log('Dispatched fileAnalysisStatusChanged event');
+        
+        // Also update a flag in localStorage to ensure UI consistency
+        try {
+          const analyzedFilesKey = `analyzedFiles_${userId}`;
+          const analyzedFilesJson = localStorage.getItem(analyzedFilesKey) || '{}';
+          const analyzedFiles = JSON.parse(analyzedFilesJson);
+          
+          if (isAnalyzed) {
+            analyzedFiles[fileId] = true;
+          } else {
+            delete analyzedFiles[fileId];
+          }
+          
+          localStorage.setItem(analyzedFilesKey, JSON.stringify(analyzedFiles));
+          console.log(`Updated localStorage analyzed status for file ${fileId}: ${isAnalyzed}`);
+        } catch (e) {
+          console.error('Error updating localStorage analyzed files:', e);
+        }
       }
     } catch (error) {
       console.error('Error refreshing file analysis status:', error);
+    }
+  }
+
+  /**
+   * Check if a folder has any analysis results
+   */
+  async folderHasAnalysisResults(folderId: string, userId: string): Promise<boolean> {
+    try {
+      // Get all files in the folder
+      const { data: files, error: filesError } = await supabase
+        .from('files')
+        .select('id')
+        .eq('folderId', folderId);
+      
+      if (filesError) throw filesError;
+      if (!files || files.length === 0) return false;
+      
+      // Check if any of these files have analysis results
+      const fileIds = files.map(file => file.id);
+      const { count, error: countError } = await supabase
+        .from('analysis_results')
+        .select('id', { count: 'exact', head: true })
+        .in('file_id', fileIds)
+        .eq('userId', userId);
+      
+      if (countError) throw countError;
+      return count !== null && count > 0;
+    } catch (error) {
+      console.error('Error checking if folder has analysis results:', error);
+      return false;
     }
   }
 } 
