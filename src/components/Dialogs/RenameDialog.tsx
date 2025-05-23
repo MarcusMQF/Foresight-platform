@@ -24,7 +24,7 @@ export default function RenameDialog({ isOpen, onClose, onSubmit, currentName }:
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/25 backdrop-blur-sm" />
       
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-xs mx-4">
+      <div className="relative bg-white rounded shadow-xl w-full max-w-xs mx-4">
         <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
           <h2 className="text-sm font-medium text-gray-900">Rename Folder</h2>
           <button
@@ -50,7 +50,7 @@ export default function RenameDialog({ isOpen, onClose, onSubmit, currentName }:
               defaultValue={currentName}
               autoFocus
               required
-              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none placeholder-gray-400"
+              className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded focus:outline-none placeholder-gray-400"
               style={{ boxShadow: 'none' }}
               onFocus={(e) => e.target.style.border = '1px solid #F04E23'}
               onBlur={(e) => e.target.style.border = '1px solid #e5e7eb'}
@@ -61,13 +61,13 @@ export default function RenameDialog({ isOpen, onClose, onSubmit, currentName }:
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors"
+              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-primary-500 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-3 py-1.5 text-xs font-medium text-white bg-[#F04E23] rounded-md hover:bg-[#d83e15] focus:outline-none focus:ring-1 focus:ring-[#F04E23] transition-colors"
+              className="px-3 py-1.5 text-xs font-medium text-white bg-[#F04E23] rounded hover:bg-[#d83e15] focus:outline-none focus:ring-1 focus:ring-[#F04E23] transition-colors"
             >
               Rename
             </button>

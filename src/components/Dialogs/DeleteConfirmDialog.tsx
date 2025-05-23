@@ -14,7 +14,7 @@ export default function DeleteConfirmDialog({ isOpen, onClose, onConfirm, folder
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/25 backdrop-blur-sm" />
       
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-xs mx-4">
+      <div className="relative bg-white rounded shadow-xl w-full max-w-xs mx-4">
         <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
           <h2 className="text-sm font-medium text-gray-900">Delete Folder</h2>
           <button
@@ -41,7 +41,7 @@ export default function DeleteConfirmDialog({ isOpen, onClose, onConfirm, folder
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 focus:outline-none transition-colors"
+              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded hover:bg-gray-50 focus:outline-none transition-colors"
             >
               Cancel
             </button>
@@ -50,7 +50,7 @@ export default function DeleteConfirmDialog({ isOpen, onClose, onConfirm, folder
                 onConfirm();
                 onClose();
               }}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none transition-colors"
+              className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700 focus:outline-none transition-colors"
             >
               Delete
             </button>

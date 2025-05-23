@@ -77,7 +77,7 @@ const Dialog: React.FC<DialogProps> = ({
         <div className="flex min-h-full items-center justify-center p-4 text-center">
           <div 
             ref={dialogRef}
-            className={`${maxWidthClasses[maxWidth]} w-full bg-white rounded-xl shadow-xl transform transition-all duration-300 ease-in-out`}
+            className={`${maxWidthClasses[maxWidth]} w-full bg-white rounded shadow-xl transform transition-all duration-300 ease-in-out`}
           >
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h3 className="text-lg font-semibold text-gray-800">{title}</h3>

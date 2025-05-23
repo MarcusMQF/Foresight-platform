@@ -416,56 +416,55 @@ const Documents: React.FC = () => {
   };
 
   // Handle file upload
-  const handleFileUpload = async (files: File[]) => {
+  const handleFileUpload = async (file: File): Promise<void> => {
     if (!currentFolder) return;
     
     setUploading(true);
-    setUploadError(null);
     
     try {
-      const duplicateFiles: string[] = [];
-      const successfulUploads: FileItem[] = [];
+      // Upload single file
+      const uploadedFile = await documentsService.uploadFile(
+        file,
+        currentFolder.id,
+        TEMP_USER_ID
+      );
       
-      for (const file of files) {
-        try {
-          const uploadedFile = await documentsService.uploadFile(
-            file,
-            currentFolder.id,
-            TEMP_USER_ID
-          );
-          successfulUploads.push(uploadedFile);
-        } catch (error) {
-          // Check if this is a duplicate file error
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          if (errorMessage.includes('already exists in this folder')) {
-            duplicateFiles.push(file.name);
-          } else {
-            // For other errors, throw immediately
-            throw error;
-          }
-        }
-      }
-      
-      // Add successfully uploaded files to the state
-      if (successfulUploads.length > 0) {
-        setFiles(prev => [...successfulUploads, ...prev]);
-      }
-      
-      // If we have duplicate files, show an error but don't close the dialog
-      if (duplicateFiles.length > 0) {
-        setUploadError(duplicateFiles.length === 1 
-          ? `**Duplicate file found:** ${duplicateFiles[0]}`
-          : `**Duplicate files found:** ${duplicateFiles.join(', ')}`);
-      } else if (successfulUploads.length > 0) {
-        // If all uploads were successful, close the dialog
-        setIsUploadDialogOpen(false);
-      }
+      // Add successfully uploaded file to the state
+      setFiles(prev => [uploadedFile, ...prev]);
     } catch (error) {
-      console.error('Error uploading files:', error);
-      setUploadError(error instanceof Error ? error.message : 'Failed to upload files');
-      // Keep dialog open if there's an error
+      // Check if this is a duplicate file error
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('already exists in this folder')) {
+        setUploadError(prevError => {
+          const duplicateFile = file.name;
+          if (!prevError) {
+            return `**Duplicate file found:** ${duplicateFile}`;
+          } else if (prevError.includes('**Duplicate file found:**')) {
+            return `**Duplicate files found:** ${prevError.split('**Duplicate file found:** ')[1]}, ${duplicateFile}`;
+          } else if (prevError.includes('**Duplicate files found:**')) {
+            return `${prevError}, ${duplicateFile}`;
+          }
+          return prevError;
+        });
+      } else {
+        // For other errors
+        setUploadError(error instanceof Error ? error.message : 'Failed to upload file');
+      }
+      
+      throw error;
     } finally {
       setUploading(false);
+    }
+  };
+
+  // Handle upload completion
+  const handleUploadComplete = () => {
+    // Close the dialog only if there are no errors
+    if (!uploadError) {
+      // Add a small delay to ensure the UI has updated
+      setTimeout(() => {
+        setIsUploadDialogOpen(false);
+      }, 500);
     }
   };
 
@@ -804,7 +803,7 @@ const Documents: React.FC = () => {
           ) : (
             <button 
               onClick={() => setIsCreateDialogOpen(true)}
-              className="px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded-md hover:bg-primary-600 transition-colors duration-200 flex items-center shadow-sm"
+              className="px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded hover:bg-primary-600 transition-colors duration-200 flex items-center shadow-sm"
               disabled={loading}
             >
               <FolderPlus size={14} className="mr-1.5" />
@@ -846,7 +845,7 @@ const Documents: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search folders..."
-            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-primary-500 transition-colors duration-200"
+            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded text-sm focus:outline-none focus:border-primary-500 transition-colors duration-200"
             disabled={loading}
           />
         </div>
@@ -859,13 +858,13 @@ const Documents: React.FC = () => {
         <>
           {/* Empty state for no folders */}
           {!folderId && folders.length === 0 && (
-            <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 text-center">
+            <div className="bg-white rounded border border-gray-100 shadow-sm p-6 text-center">
               <FolderPlus size={24} className="mx-auto text-gray-400 mb-2" />
               <p className="text-gray-600 mb-2">No folders found</p>
               <p className="text-gray-500 text-sm mb-4">Create a new folder to get started.</p>
               <button 
                 onClick={() => setIsCreateDialogOpen(true)}
-                className="px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded-md hover:bg-primary-600 transition-colors duration-200 inline-flex items-center shadow-sm"
+                className="px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded hover:bg-primary-600 transition-colors duration-200 inline-flex items-center shadow-sm"
               >
                 <FolderPlus size={14} className="mr-1.5" />
                 <span>New Folder</span>
@@ -992,7 +991,7 @@ const Documents: React.FC = () => {
                   <div 
                     key={folder.id}
                     onClick={() => handleFolderClick(folder.id)}
-                    className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 cursor-pointer hover:border-primary-200 hover:shadow-md transition-all duration-200"
+                    className="bg-white rounded border border-gray-100 shadow-sm p-4 cursor-pointer hover:border-primary-200 hover:shadow-md transition-all duration-200"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-center space-x-3">
@@ -1027,7 +1026,7 @@ const Documents: React.FC = () => {
                 ))}
               </div>
             ) : (
-              <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="bg-white rounded border border-gray-100 shadow-sm overflow-hidden">
                 <div className="divide-y divide-gray-100">
                   {filteredFolders.map(folder => (
                     <div 
@@ -1100,29 +1099,25 @@ const Documents: React.FC = () => {
       )}
 
       {/* File Upload Dialog */}
-      {currentFolder && (
-        <FileUploadDialog
-          isOpen={isUploadDialogOpen}
-          onClose={() => {
-            setIsUploadDialogOpen(false);
-            setUploadError(null);
-          }}
-          onUpload={handleFileUpload}
-          isUploading={uploading}
-          folderName={currentFolder.name}
-          error={uploadError}
-          maxSizeInMB={5}
-          maxFilesInFolder={20}
-          onClearError={() => setUploadError(null)}
-        />
-      )}
+      <FileUploadDialog
+        isOpen={isUploadDialogOpen}
+        onClose={() => setIsUploadDialogOpen(false)}
+        onUpload={handleFileUpload}
+        isUploading={uploading}
+        folderName={currentFolder?.name || ''}
+        error={uploadError}
+        maxSizeInMB={5}
+        maxFilesInFolder={20}
+        onClearError={() => setUploadError(null)}
+        onComplete={handleUploadComplete}
+      />
 
       {/* Bulk Delete Confirmation Dialog */}
       {showBulkDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="fixed inset-0 bg-black/25 backdrop-blur-sm" />
           
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-xs mx-4">
+          <div className="relative bg-white rounded shadow-xl w-full max-w-xs mx-4">
             <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
               <h2 className="text-sm font-medium text-gray-900">Delete Multiple Files</h2>
               <button
@@ -1150,7 +1145,7 @@ const Documents: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowBulkDeleteConfirm(false)}
-                  className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 focus:outline-none transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded hover:bg-gray-50 focus:outline-none transition-colors"
                   disabled={bulkActionLoading}
                 >
                   Cancel
@@ -1158,7 +1153,7 @@ const Documents: React.FC = () => {
                 <button
                   onClick={handleConfirmBulkDelete}
                   disabled={bulkActionLoading}
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700 focus:outline-none transition-colors"
                 >
                   {bulkActionLoading ? 'Deleting...' : 'Delete'}
                 </button>
@@ -1173,7 +1168,7 @@ const Documents: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="fixed inset-0 bg-black/25 backdrop-blur-sm" />
           
-          <div className="relative bg-white rounded-lg shadow-xl w-full max-w-xs mx-4">
+          <div className="relative bg-white rounded shadow-xl w-full max-w-xs mx-4">
             <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
               <h2 className="text-sm font-medium text-gray-900">Delete File</h2>
               <button
@@ -1211,7 +1206,7 @@ const Documents: React.FC = () => {
                       setFileToDelete(null);
                     }
                   }}
-                  className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 focus:outline-none transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded hover:bg-gray-50 focus:outline-none transition-colors"
                   disabled={singleDeleteLoading}
                 >
                   Cancel
@@ -1219,7 +1214,7 @@ const Documents: React.FC = () => {
                 <button
                   onClick={handleConfirmSingleDelete}
                   disabled={singleDeleteLoading}
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700 focus:outline-none transition-colors"
                 >
                   {singleDeleteLoading ? 'Deleting...' : 'Delete'}
                 </button>

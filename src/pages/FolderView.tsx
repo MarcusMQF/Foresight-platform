@@ -158,7 +158,7 @@ const FolderView: React.FC = () => {
       {/* Upload Area */}
       <div 
         className={`
-          relative border-2 border-dashed rounded-xl p-8
+          relative border-2 border-dashed rounded p-8
           transition-colors duration-200 ease-in-out
           ${isDragging 
             ? 'border-primary-500 bg-primary-50' 
@@ -189,7 +189,7 @@ const FolderView: React.FC = () => {
 
       {/* File List */}
       {files.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded border border-gray-100 shadow-sm overflow-hidden">
           <div className="p-4 border-b border-gray-100">
             <h2 className="text-sm font-medium text-gray-800">Uploaded Files</h2>
           </div>

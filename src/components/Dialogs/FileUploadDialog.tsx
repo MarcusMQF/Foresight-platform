@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import { X, AlertCircle } from 'lucide-react';
 import FileUpload from '../FileUpload';
@@ -6,13 +6,14 @@ import FileUpload from '../FileUpload';
 interface FileUploadDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpload: (files: File[]) => void;
+  onUpload: (file: File) => Promise<void>;
   isUploading: boolean;
   folderName: string;
   error?: string | null;
   maxSizeInMB?: number;
   maxFilesInFolder?: number;
   onClearError?: () => void;
+  onComplete?: () => void;
 }
 
 const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
@@ -24,12 +25,33 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
   error,
   maxSizeInMB = 5,
   maxFilesInFolder = 20,
-  onClearError
+  onClearError,
+  onComplete
 }) => {
+  const [uploading, setUploading] = useState(false);
+  
   // Create a handler for clearing errors
   const handleClearError = () => {
     if (onClearError) {
       onClearError();
+    }
+  };
+  
+  // Handle file upload
+  const handleUpload = async (file: File): Promise<void> => {
+    setUploading(true);
+    try {
+      await onUpload(file);
+    } finally {
+      setUploading(false);
+    }
+  };
+  
+  // Handle upload completion
+  const handleUploadComplete = () => {
+    // Only close the dialog if there are no errors
+    if (!error && onComplete) {
+      onComplete();
     }
   };
   
@@ -97,11 +119,12 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
 
             <div className="mt-2">
               <FileUpload 
-                onUpload={onUpload} 
-                isUploading={isUploading}
+                onUpload={handleUpload}
+                isUploading={isUploading || uploading}
                 maxSizeInMB={maxSizeInMB}
                 maxFilesInFolder={maxFilesInFolder}
                 onClearError={handleClearError}
+                onComplete={handleUploadComplete}
               />
             </div>
           </Dialog.Panel>

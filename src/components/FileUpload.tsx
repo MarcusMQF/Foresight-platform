@@ -1,14 +1,21 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, AlertCircle, Info, Folder, Archive, FileText } from 'lucide-react';
+import { Upload, X, AlertCircle, Info, Folder, Archive, FileText, Loader } from 'lucide-react';
 
 interface FileUploadProps {
-  onUpload: (files: File[]) => void;
+  onUpload: (file: File) => Promise<void>;
   isUploading: boolean;
   accept?: string;
   multiple?: boolean;
   maxSizeInMB?: number;
   maxFilesInFolder?: number;
   onClearError?: () => void;
+  onComplete?: () => void;
+}
+
+interface FileStatus {
+  file: File;
+  status: 'pending' | 'uploading' | 'success' | 'error';
+  error?: string;
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ 
@@ -18,10 +25,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
   multiple = true,
   maxSizeInMB = 5,
   maxFilesInFolder = 20,
-  onClearError
+  onClearError,
+  onComplete
 }) => {
   const [dragActive, setDragActive] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<FileStatus[]>([]);
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [folderSummary, setFolderSummary] = useState<{
     name: string;
@@ -30,6 +38,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     isValid: boolean;
     errorMessage?: string;
   } | null>(null);
+  const [currentUploadIndex, setCurrentUploadIndex] = useState<number>(-1);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
@@ -259,7 +268,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
   // Validate files before setting them
   const validateAndSetFiles = (files: File[]) => {
     const errors: {[key: string]: string} = {};
-    const validFiles: File[] = [];
+    const validFiles: FileStatus[] = [];
     
     files.forEach(file => {
       // Validate file size
@@ -277,7 +286,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         return;
       }
       
-      validFiles.push(file);
+      validFiles.push({ file, status: 'pending' });
     });
     
     setValidationErrors(errors);
@@ -289,6 +298,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
     setSelectedFiles([]);
     setValidationErrors({});
     setFolderSummary(null);
+    setCurrentUploadIndex(-1);
     
     // Clear any upload errors via the callback
     if (onClearError) {
@@ -313,9 +323,73 @@ const FileUpload: React.FC<FileUploadProps> = ({
   };
 
   // Submit selected files for upload
-  const handleSubmit = () => {
-    if (selectedFiles.length > 0 && !isUploading) {
-      onUpload(selectedFiles);
+  const handleSubmit = async () => {
+    if (selectedFiles.length === 0 || isUploading) return;
+    
+    try {
+      // Start uploading files one by one
+      setCurrentUploadIndex(0);
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (let i = 0; i < selectedFiles.length; i++) {
+        // Skip files that are already uploaded or have errors
+        if (selectedFiles[i].status === 'success') {
+          successCount++;
+          continue;
+        }
+        if (selectedFiles[i].status === 'error') {
+          errorCount++;
+          continue;
+        }
+        
+        setCurrentUploadIndex(i);
+        
+        // Update status to uploading
+        setSelectedFiles(prev => {
+          const updated = [...prev];
+          updated[i] = { ...updated[i], status: 'uploading' };
+          return updated;
+        });
+        
+        try {
+          // Upload the file
+          await onUpload(selectedFiles[i].file);
+          
+          // Update status to success
+          setSelectedFiles(prev => {
+            const updated = [...prev];
+            updated[i] = { ...updated[i], status: 'success' };
+            return updated;
+          });
+          successCount++;
+        } catch (error) {
+          // Update status to error
+          setSelectedFiles(prev => {
+            const updated = [...prev];
+            updated[i] = { 
+              ...updated[i], 
+              status: 'error', 
+              error: error instanceof Error ? error.message : 'Upload failed' 
+            };
+            return updated;
+          });
+          errorCount++;
+        }
+      }
+      
+      // Reset current upload index
+      setCurrentUploadIndex(-1);
+      
+      // Only call onComplete if all files have been processed
+      if (successCount + errorCount === selectedFiles.length && onComplete) {
+        // Add a small delay to allow the UI to update and show the green status
+        setTimeout(() => {
+          onComplete();
+        }, 800);
+      }
+    } catch (error) {
+      console.error('Error during upload process:', error);
     }
   };
 
@@ -328,6 +402,20 @@ const FileUpload: React.FC<FileUploadProps> = ({
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  // Get status icon for file
+  const getStatusIcon = (status: FileStatus['status']) => {
+    switch (status) {
+      case 'uploading':
+        return <Loader size={14} className="text-primary-500 animate-spin" />;
+      case 'success':
+        return <div className="w-3 h-3 bg-green-500 rounded-full"></div>;
+      case 'error':
+        return <div className="w-3 h-3 bg-red-500 rounded-full"></div>;
+      default:
+        return <div className="w-3 h-3 bg-gray-300 rounded-full"></div>;
+    }
   };
 
   return (
@@ -488,11 +576,32 @@ const FileUpload: React.FC<FileUploadProps> = ({
         <div className="mt-4 space-y-2">
           <p className="text-sm font-medium text-gray-700">Selected Files:</p>
           <div className="space-y-2 max-h-48 overflow-y-auto">
-            {selectedFiles.map((file, index) => (
-              <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded-md">
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-gray-700 truncate">{file.name}</p>
-                  <p className="text-[10px] text-gray-500">{formatFileSize(file.size)}</p>
+            {selectedFiles.map((fileStatus, index) => (
+              <div 
+                key={index} 
+                className={`flex items-center justify-between p-2 rounded-md ${
+                  currentUploadIndex === index && fileStatus.status === 'uploading' 
+                    ? 'bg-blue-50 border border-blue-100' 
+                    : fileStatus.status === 'success'
+                    ? 'bg-green-50 border border-green-100'
+                    : fileStatus.status === 'error'
+                    ? 'bg-red-50 border border-red-100'
+                    : 'bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center flex-1 min-w-0">
+                  <div className="mr-2 flex-shrink-0">
+                    {getStatusIcon(fileStatus.status)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-700 truncate">{fileStatus.file.name}</p>
+                    <p className="text-[10px] text-gray-500">
+                      {formatFileSize(fileStatus.file.size)}
+                      {fileStatus.status === 'error' && (
+                        <span className="text-red-500 ml-2">{fileStatus.error}</span>
+                      )}
+                    </p>
+                  </div>
                 </div>
                 <button 
                   onClick={() => removeFile(index)}
@@ -517,7 +626,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
               type="button"
               onClick={handleSubmit}
               disabled={isUploading || selectedFiles.length === 0}
-              className="px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded-md hover:bg-primary-600 transition-colors duration-200 flex items-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
+              className="px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded hover:bg-primary-600 transition-colors duration-200 flex items-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
             >
               {isUploading ? 'Uploading...' : 'Upload'}
             </button>

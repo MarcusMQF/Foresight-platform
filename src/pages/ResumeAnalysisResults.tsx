@@ -5,6 +5,8 @@ import { AnalysisResult } from '../services/resume-analysis.service';
 import { supabase } from '../lib/supabase';
 import { ATSService } from '../services';
 import ConfirmationDialog from '../components/Dialogs/ConfirmationDialog';
+import LottieAnimation from '../components/UI/LottieAnimation';
+import { LOADER_ANIMATION } from '../utils/animationPreloader';
 
 const ResumeAnalysisResults: React.FC = () => {
   const navigate = useNavigate();
@@ -406,7 +408,12 @@ const ResumeAnalysisResults: React.FC = () => {
           <div className="overflow-x-auto">
             {loading ? (
               <div className="p-8 text-center">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mb-3"></div>
+                <LottieAnimation 
+                  animationUrl={LOADER_ANIMATION} 
+                  width={80} 
+                  height={80} 
+                  className="mx-auto opacity-75 mb-3"
+                />
                 <p className="text-sm text-gray-500">Loading analysis results...</p>
               </div>
             ) : results.length === 0 ? (
