@@ -52,28 +52,48 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
   // Load job description when dialog is opened
   useEffect(() => {
     if (isOpen && folderId) {
+      console.log('ATSCheckerDialog opened for folder:', folderId);
       const loadJobDescription = async () => {
         setLoadingJobDescription(true);
         try {
-          // Use temp user ID until authentication is implemented
+          // Use consistent userId - always use 'temp_user_id' for now
           const userId = 'temp_user_id';
+          
+          console.log(`Attempting to load job description for folder ${folderId} and user ${userId}`);
+          
+          // Direct database query to check what job descriptions exist
+          try {
+            const { data: allJobDescriptions, error: queryError } = await supabase
+              .from('job_descriptions')
+              .select('*')
+              .eq('folder_id', folderId);
+              
+            if (queryError) {
+              console.error('Error querying job descriptions:', queryError);
+            } else {
+              console.log(`Direct query found ${allJobDescriptions?.length || 0} job descriptions for folder ${folderId}:`);
+              allJobDescriptions?.forEach(jd => {
+                console.log(`- ID: ${jd.id}, userId: ${jd.userId}, created: ${jd.created_at}, length: ${jd.description.length}`);
+              });
+            }
+          } catch (directQueryError) {
+            console.error('Error in direct job descriptions query:', directQueryError);
+          }
           
           // Try to load job description from database
           const jobDesc = await resumeAnalysisService.getLatestJobDescription(folderId, userId);
           
           if (jobDesc) {
-            console.log('Loaded job description from database:', jobDesc.id);
+            console.log(`Loaded job description from database: ID=${jobDesc.id}, Content="${jobDesc.description.substring(0, 30)}..."`);
             setJobDescription(jobDesc.description);
           } else {
-            // If no job description found, check localStorage as fallback
-            const storedJobDesc = localStorage.getItem('jobDescription');
-            if (storedJobDesc) {
-              console.log('Using job description from localStorage');
-              setJobDescription(storedJobDesc);
-            }
+            // No job description found for this folder, start with empty
+            console.log('No job description found for folder:', folderId);
+            setJobDescription('');
           }
         } catch (error) {
           console.error('Error loading job description:', error);
+          setJobDescription('');
         } finally {
           setLoadingJobDescription(false);
         }
@@ -284,19 +304,10 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
     try {
       console.log('Starting analysis with folder ID:', folderId);
       
-      // Get the current user ID
-      let userId = 'anonymous';
-      try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) {
-          console.error('Error getting user:', error);
-        } else {
-          userId = user?.id || 'anonymous';
-          console.log('Got user ID:', userId);
-        }
-      } catch (authError) {
-        console.error('Auth error:', authError);
-      }
+      // Use consistent userId - always use 'temp_user_id' for now
+      // This ensures we use the same ID for loading and storing
+      const userId = 'temp_user_id';
+      console.log('Using consistent userId:', userId);
       
       // Set up a temporary timer to track progress while the analysis runs
       const isSingleFile = filesToAnalyze.length === 1;
@@ -313,6 +324,7 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
       }, totalTime / 20);
       
       console.log('Storing job description for folder ID:', folderId, 'and user ID:', userId);
+      console.log(`Job description content (first 30 chars): "${jobDescription.substring(0, 30)}..."`);
       
       // Store the job description in the database
       let jobDescriptionId = null;
@@ -524,6 +536,8 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           
           // Store the combined results
           localStorage.setItem('resumeAnalysisResults', JSON.stringify(combinedResults));
+          
+          // Store job description only for results page
           localStorage.setItem('jobDescription', jobDescription);
           localStorage.setItem('analysisWeights', JSON.stringify(weights));
           

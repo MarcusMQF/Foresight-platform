@@ -114,12 +114,15 @@ export class ResumeAnalysisService {
   // Get latest job description for a folder using ATSService
   async getLatestJobDescription(folderId: string, userId: string): Promise<{ id: string, description: string } | null> {
     try {
+      console.log(`ResumeAnalysisService: Getting job description for folder=${folderId}, userId=${userId}`);
       const jobDescription = await this.atsService.getJobDescription(folderId, userId);
       
       if (!jobDescription) {
+        console.log(`ResumeAnalysisService: No job description found for folder=${folderId}`);
         return null;
       }
       
+      console.log(`ResumeAnalysisService: Found job description id=${jobDescription.id}, folder=${jobDescription.folder_id}, userId=${jobDescription.userId}`);
       return {
         id: jobDescription.id,
         description: jobDescription.description
@@ -182,16 +185,8 @@ export class ResumeAnalysisService {
   // Get all analyzed files in a folder
   async getAnalyzedFilesInFolder(folderId: string): Promise<string[]> {
     try {
-      // Get current user ID
-      let userId = 'temp_user_id';
-      try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (!error && user) {
-          userId = user.id;
-        }
-      } catch (authError) {
-        console.error('Auth error:', authError);
-      }
+      // Use consistent userId - always use 'temp_user_id' for now
+      const userId = 'temp_user_id';
       
       console.log(`Getting analyzed files for folder: ${folderId}, user: ${userId}`);
       

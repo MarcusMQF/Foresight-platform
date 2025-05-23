@@ -29,7 +29,10 @@ export class ATSService {
    */
   async getJobDescription(folderId: string, userId: string): Promise<JobDescription | null> {
     try {
-      const { data, error } = await supabase
+      console.log(`ATSService: Getting job description for folder=${folderId}, userId=${userId}`);
+      
+      // First try with userId filter
+      let { data, error } = await supabase
         .from('job_descriptions')
         .select('*')
         .eq('folder_id', folderId)
@@ -38,7 +41,28 @@ export class ATSService {
         .limit(1)
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.log(`ATSService: No job description found with userId=${userId}, trying without userId filter`);
+        
+        // If no result with userId, try without userId filter to see if any job descriptions exist
+        const { data: allData, error: allError } = await supabase
+          .from('job_descriptions')
+          .select('*')
+          .eq('folder_id', folderId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+          
+        if (allError) {
+          console.log(`ATSService: No job description found for folder=${folderId} with any userId`);
+          throw allError;
+        }
+        
+        data = allData;
+        console.log(`ATSService: Found job description with different userId=${data.userId}`);
+      }
+      
+      console.log(`ATSService: Found job description for folder=${folderId}, id=${data.id}, userId=${data.userId}`);
       return data;
     } catch (error) {
       console.error('Error getting job description:', error);
@@ -55,24 +79,50 @@ export class ATSService {
     userId: string
   ): Promise<string | null> {
     try {
-      // Check if a job description already exists for this folder
-      const existingJobDescription = await this.getJobDescription(folderId, userId);
+      console.log(`ATSService: Storing job description for folder=${folderId}, userId=${userId}, length=${description.length}`);
+      
+      // First try to find an exact match with folder_id and userId
+      let existingJobDescription = await this.getJobDescription(folderId, userId);
+      
+      // If no exact match, try to find any job description for this folder
+      if (!existingJobDescription) {
+        try {
+          const { data, error } = await supabase
+            .from('job_descriptions')
+            .select('*')
+            .eq('folder_id', folderId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+            
+          if (!error && data) {
+            existingJobDescription = data;
+            console.log(`ATSService: Found job description with different userId: ${data.userId}`);
+          }
+        } catch (findError) {
+          console.error('Error finding job description with any userId:', findError);
+        }
+      }
       
       if (existingJobDescription) {
+        console.log(`ATSService: Updating existing job description id=${existingJobDescription.id}`);
         // Update existing job description
         const { data, error } = await supabase
           .from('job_descriptions')
           .update({
             description,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            userId // Update with current userId
           })
           .eq('id', existingJobDescription.id)
           .select('id')
           .single();
         
         if (error) throw error;
+        console.log(`ATSService: Successfully updated job description id=${data.id}`);
         return data.id;
       } else {
+        console.log(`ATSService: Creating new job description for folder=${folderId}`);
         // Create new job description
         const { data, error } = await supabase
           .from('job_descriptions')
@@ -85,6 +135,7 @@ export class ATSService {
           .single();
         
         if (error) throw error;
+        console.log(`ATSService: Successfully created job description id=${data.id}`);
         return data.id;
       }
     } catch (error) {
