@@ -100,3 +100,7 @@ tsconfig.tsbuildinfo
 .branches
 .temp
 .lock
+/samples
+/backend/samples
+login_hugginggace.py
+test_pdf_extraction.py

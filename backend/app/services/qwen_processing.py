@@ -720,4 +720,209 @@ class QwenProcessingService:
             "missing_skills": missing_skills,
             "assessment": assessment,
             "match_percentage": round(match_percentage, 1)
-        } 
+        }
+    
+    def analyze_job_description(self, job_description: str) -> Dict[str, Any]:
+        """
+        Analyze job description to extract important requirements and context
+        for better resume matching
+        
+        Args:
+            job_description: The job description text
+            
+        Returns:
+            Dictionary with extracted information from job description
+        """
+        logger.info("Analyzing job description to extract key requirements")
+        
+        # Extract key information using regex patterns for speed
+        job_info = {}
+        
+        # Extract job title
+        title_patterns = [
+            r"(?:Job Title|Position|Role)[\s:]+([^\n]+)",
+            r"^([A-Z][A-Za-z\s]+(?:Developer|Engineer|Designer|Manager|Analyst|Specialist|Architect|Consultant))[\s\n]",
+            r"([A-Z][A-Za-z\s]+(?:Developer|Engineer|Designer|Manager|Analyst|Specialist|Architect|Consultant))[\s\n]+"
+        ]
+        
+        job_title = ""
+        for pattern in title_patterns:
+            match = re.search(pattern, job_description)
+            if match:
+                job_title = match.group(1).strip()
+                break
+        
+        job_info["title"] = job_title
+        
+        # Extract experience level
+        experience_patterns = [
+            r"(\d+[\+]?\s*(?:-|to)\s*\d+)\s*years\s+(?:of\s+)?experience",
+            r"minimum\s+(?:of\s+)?(\d+[\+]?)\s*years\s+(?:of\s+)?experience",
+            r"at\s+least\s+(\d+[\+]?)\s*years\s+(?:of\s+)?experience",
+            r"(\d+[\+]?)\s*\+\s*years\s+(?:of\s+)?experience",
+            r"experience\s*(?:of|:|\()\s*(\d+[\+]?\s*(?:-|to)\s*\d+)\s*years",
+        ]
+        
+        experience_required = ""
+        for pattern in experience_patterns:
+            match = re.search(pattern, job_description, re.IGNORECASE)
+            if match:
+                experience_required = match.group(1).strip()
+                break
+        
+        job_info["experience_required"] = experience_required
+        
+        # Extract education requirements
+        education_patterns = [
+            r"(?:Bachelor's|Bachelor|BS|BA|B.S.|B.A.|Master's|Master|MS|MA|M.S.|M.A.|PhD|Ph.D.|Doctorate)(?:\s+degree)?\s+(?:in|of)\s+([^,\n.]+)",
+            r"(?:degree|diploma)\s+(?:in|of)\s+([^,\n.]+)",
+            r"(?:Education|Qualification)[\s:]+([^\n]+)"
+        ]
+        
+        education_required = ""
+        for pattern in education_patterns:
+            match = re.search(pattern, job_description, re.IGNORECASE)
+            if match:
+                education_required = match.group(1).strip()
+                break
+        
+        job_info["education_required"] = education_required
+        
+        # Extract required technical skills using enhanced patterns
+        technical_skills = set()
+        tech_patterns = [
+            # Programming languages
+            r'\b(?:Python|Java|JavaScript|TypeScript|C\+\+|C#|Ruby|PHP|Go|Swift|Kotlin|Dart)\b',
+            
+            # Frameworks
+            r'\b(?:React(?:\.js)?|Angular|Vue|Flutter|Django|Flask|Spring|Express|TensorFlow|PyTorch|Node\.js)\b',
+            
+            # Databases
+            r'\b(?:SQL|MySQL|PostgreSQL|MongoDB|Oracle|SQLite|Redis|Cassandra|DynamoDB|Firebase|Firestore)\b',
+            
+            # Cloud/DevOps
+            r'\b(?:AWS|Azure|GCP|Docker|Kubernetes|CI/CD|Jenkins|Git|GitHub|GitLab|Vercel|Netlify|Heroku)\b',
+            
+            # Web technologies
+            r'\b(?:HTML5?|CSS3?|SASS|LESS|Bootstrap|Tailwind|REST|GraphQL|API|Axios|Fetch|Redux|Next\.js|Vite)\b',
+            
+            # Mobile development
+            r'\b(?:Flutter|React\s+Native|Ionic|Swift|Kotlin|Android|iOS|Xcode|Android\s+Studio|Mobile\s+App)\b',
+            
+            # Design tools
+            r'\b(?:Figma|Adobe\s+XD|Sketch|InVision|Photoshop|Illustrator|UI|UX)\b',
+            
+            # AI/ML
+            r'\b(?:Machine\s+Learning|AI|Artificial\s+Intelligence|NLP|Neural\s+Networks|Deep\s+Learning|Gemini|GPT)\b'
+        ]
+        
+        for pattern in tech_patterns:
+            matches = re.finditer(pattern, job_description, re.IGNORECASE)
+            for match in matches:
+                term = match.group(0)
+                # Standardize capitalization for common technologies
+                if term.lower() == "javascript":
+                    term = "JavaScript"
+                elif term.lower() == "typescript":
+                    term = "TypeScript"
+                elif term.lower() == "postgresql":
+                    term = "PostgreSQL"
+                technical_skills.add(term)
+        
+        # Add required skills from common requirement sections
+        requirement_section_pattern = r'(?:Requirements|Required Skills|Qualifications|Essential Skills|Must Have|Technical Requirements)[^\n]*(?:\n|:)(.*?)(?:\n\s*\n|\n\s*[A-Z][A-Z\s]+\s*(?::|$)|\Z)'
+        match = re.search(requirement_section_pattern, job_description, re.DOTALL | re.IGNORECASE)
+        if match:
+            requirement_section = match.group(1).strip()
+            # Look for bullet points with skills
+            for line in requirement_section.split('\n'):
+                line = line.strip()
+                # Skip empty lines
+                if not line:
+                    continue
+                    
+                # Remove bullet points and other markers
+                cleaned_line = re.sub(r'^[\s•\-–—*•●➢➤‣◦◆◇]+\s*', '', line)
+                
+                # Skip lines that are too short
+                if len(cleaned_line) < 5:
+                    continue
+                
+                # Check for expertise keywords
+                expertise_keywords = ["experience", "expertise", "proficiency", "knowledge", "familiar", "skills"]
+                if any(keyword in cleaned_line.lower() for keyword in expertise_keywords):
+                    # Extract technologies from this requirement
+                    for pattern in tech_patterns:
+                        matches = re.finditer(pattern, cleaned_line, re.IGNORECASE)
+                        for match in matches:
+                            technical_skills.add(match.group(0))
+        
+        job_info["technical_skills"] = sorted(list(technical_skills))
+        
+        # Extract soft skills
+        soft_skills = set()
+        soft_skill_patterns = [
+            r'\b(?:teamwork|leadership|communication|problem[\s-]solving|critical\s+thinking|adaptability|time\s+management|creativity|collaboration|flexibility)\b',
+            r'\b(?:agile|scrum|kanban|waterfall|team\s+player|self[\s-]motivated|detail[\s-]oriented|organized|analytical)\b'
+        ]
+        
+        for pattern in soft_skill_patterns:
+            matches = re.finditer(pattern, job_description, re.IGNORECASE)
+            for match in matches:
+                soft_skills.add(match.group(0).title())  # Capitalize soft skills
+        
+        job_info["soft_skills"] = sorted(list(soft_skills))
+        
+        # Extract company culture keywords
+        culture_keywords = set()
+        culture_patterns = [
+            r'\b(?:culture|environment|values|mission|vision|team|diversity|inclusion|work[-\s]life\s+balance|remote|hybrid|flexible|benefits|perks)\b'
+        ]
+        
+        for pattern in culture_patterns:
+            matches = re.finditer(pattern, job_description, re.IGNORECASE)
+            for match in matches:
+                culture_keywords.add(match.group(0).lower())
+        
+        # Look for specific company values
+        company_values_pattern = r'(?:Our\s+Values|Company\s+Values|We\s+Value|Our\s+Culture)[^\n]*(?:\n|:)(.*?)(?:\n\s*\n|\n\s*[A-Z][A-Z\s]+\s*(?::|$)|\Z)'
+        match = re.search(company_values_pattern, job_description, re.DOTALL | re.IGNORECASE)
+        if match:
+            values_section = match.group(1).strip()
+            # Look for bullet points with values
+            for line in values_section.split('\n'):
+                line = line.strip()
+                # Skip empty lines
+                if not line:
+                    continue
+                
+                # Remove bullet points and other markers
+                cleaned_line = re.sub(r'^[\s•\-–—*•●➢➤‣◦◆◇]+\s*', '', line)
+                
+                # Skip lines that are too short
+                if len(cleaned_line) < 5:
+                    continue
+                
+                # First word is likely a value
+                first_word_match = re.match(r'^([A-Za-z]+)', cleaned_line)
+                if first_word_match:
+                    culture_keywords.add(first_word_match.group(1).lower())
+        
+        job_info["culture_keywords"] = sorted(list(culture_keywords))
+        
+        # Extract job level/seniority
+        seniority_levels = ["Junior", "Entry", "Mid", "Senior", "Lead", "Principal", "Staff", "Director", "Manager", "Head"]
+        job_level = ""
+        
+        for level in seniority_levels:
+            level_pattern = r'\b' + re.escape(level) + r'\b'
+            if re.search(level_pattern, job_description, re.IGNORECASE):
+                job_level = level
+                break
+        
+        job_info["job_level"] = job_level
+        
+        # Overall keyword extraction for matching
+        job_info["keywords"] = self._extract_keywords_regex(job_description)
+        
+        return job_info 
