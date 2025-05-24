@@ -1,0 +1,57 @@
+Job Title: Junior Software Engineer (Mobile & Web Development)
+Location: Kuala Lumpur, Malaysia (Hybrid)
+Job Type: Full-time | Entry-Level
+Start Date: Immediate / Upon Graduation
+
+About the Role:
+We’re seeking a passionate and self-driven Junior Software Engineer to join our growing product team. You will work on developing user-focused mobile and web applications, contributing to innovative projects in transportation, productivity, and AI-integrated systems.
+
+This is a perfect opportunity for a motivated individual with experience in Flutter, React, and AI APIs to build real-world solutions that impact users across diverse domains.
+
+Key Responsibilities:
+Design, develop, test, and maintain cross-platform mobile apps using Flutter & Dart.
+
+Build modern and responsive web applications using React.js, Vite, and TypeScript.
+
+Integrate third-party APIs and SDKs, including Google Maps, Voice AI (e.g., Whisper, Gemini AI), and Payment Gateways.
+
+Collaborate with UX/UI designers using tools such as Figma and Adobe Suite to translate prototypes into functional products.
+
+Participate in Agile development cycles, including sprint planning, code reviews, and testing.
+
+Implement real-time features (e.g., scheduling, syncing, data persistence) using cloud platforms like Firebase and databases such as PostgreSQL and SQLite.
+
+Contribute to the development and optimization of voice assistants, gamified systems, and automation tools.
+
+Document code and maintain project repositories using Git.
+
+Key Qualifications:
+Pursuing or completed a Bachelor’s degree in Software Engineering or related field (final-year students encouraged to apply).
+
+Strong foundation in Java, C++, Python, HTML, and TypeScript.
+
+Proven project experience with Flutter, React.js, and Firebase.
+
+Familiar with AI/ML integration, particularly in voice recognition or assistant platforms.
+
+Experience with version control, cloud-based platforms, and task automation using bots.
+
+Strong analytical and problem-solving skills; comfortable working independently and in teams.
+
+Preferred Experience (Bonus Points):
+Participated in hackathons or coding competitions.
+
+Built applications for transportation, scheduling, or public services.
+
+Familiarity with UI/UX best practices and clean, accessible interface design.
+
+Experience working with real-time data systems or educational platforms.
+
+What We Offer:
+Mentorship from experienced developers and industry professionals.
+
+Exposure to impactful projects serving real users.
+
+Supportive environment for learning and growth, including code reviews and regular feedback.
+
+Flexible working hours and hybrid work option.

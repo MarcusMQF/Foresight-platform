@@ -282,18 +282,10 @@ const ResumeDetails: React.FC = () => {
       <div className="flex items-center mb-3">
         <button
           onClick={backToResults}
-          className="flex items-center text-sm text-gray-500 hover:text-gray-800 mr-4"
-        >
-          <ArrowLeft size={16} className="mr-1" />
-          Back to Results
-        </button>
-        
-        <button
-          onClick={backToFiles}
           className="flex items-center text-sm text-gray-500 hover:text-gray-800"
         >
           <ArrowLeft size={16} className="mr-1" />
-          Back to Files
+          Back to Results
         </button>
       </div>
 

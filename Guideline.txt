@@ -177,3 +177,205 @@ The database schema already exists in the project with tables for job_descriptio
    - Show loading indicators during database operations
    - Display success/error messages after operations complete
    - Provide retry options for failed operations
+
+# Resume Analysis Implementation Guideline
+
+## Step 1: Backend Text Extraction Service Enhancement
+1. Ensure the TextExtractionService is properly handling PDF files:
+   - Verify pdfminer.six dependencies are installed
+   - Implement robust error handling for malformed files
+   - Add logging for extraction process
+   - Optimize extraction for large files by implementing chunking
+
+2. Create a unified file processing pipeline:
+   - Add file type validation before extraction
+   - Implement a queue system for batch processing
+   - Create progress tracking for frontend feedback
+
+## Step 2: AI Processing with Qwen Integration
+1. Create a QwenProcessingService class:
+   ```python
+   class QwenProcessingService:
+       def extract_candidate_info(self, resume_text):
+           # Extract name, email, sections, and keywords using Qwen
+           # Return structured candidate data
+   ```
+
+2. Implement the following extraction functions:
+   - extract_name(text): Extract candidate name using NER
+   - extract_email(text): Extract email using regex patterns
+   - extract_sections(text): Segment resume into sections (Experience, Education, etc.)
+   - extract_keywords(text): Extract relevant skills and keywords
+
+3. Connect the Qwen service to the analysis pipeline:
+   ```python
+   # In resume_analysis.py router
+   qwen_service = QwenProcessingService()
+   candidate_info = qwen_service.extract_candidate_info(resume_text)
+   ```
+
+## Step 3: Scoring System Implementation
+1. Create a ScoringService class:
+   ```python
+   class ScoringService:
+       def calculate_match_score(self, resume_data, job_description):
+           # Calculate overall match score
+           # Return detailed scoring breakdown
+   ```
+
+2. Implement scoring components:
+   - keyword_overlap_score(): Calculate match based on keyword presence
+   - weighted_aspect_scores(): Score different resume aspects with weights
+     - Skills: 40%
+     - Experience: 30%
+     - Achievements: 20%
+     - Education: 5%
+     - Cultural Fit: 5%
+   - achievement_bonus(): Add bonus points for quantifiable achievements
+
+3. Connect scoring to the analysis pipeline:
+   ```python
+   # In resume_analysis.py router
+   scoring_service = ScoringService()
+   score_result = scoring_service.calculate_match_score(candidate_info, job_description)
+   ```
+
+## Step 4: Supabase Integration for Data Storage
+1. Create a SupabaseStorageService class:
+   ```python
+   class SupabaseStorageService:
+       def __init__(self, supabase_url, supabase_key):
+           # Initialize Supabase client
+           
+       def store_analysis_result(self, file_id, job_description_id, analysis_result):
+           # Store analysis result in the database
+           
+       def get_analysis_results(self, folder_id):
+           # Retrieve analysis results for a folder
+   ```
+
+2. Implement database operations:
+   - Check if analysis exists for the file
+   - Create or update analysis result
+   - Link result to job description and file
+
+3. Connect storage service to the analysis pipeline:
+   ```python
+   # In resume_analysis.py router
+   storage_service = SupabaseStorageService(SUPABASE_URL, SUPABASE_KEY)
+   result_id = storage_service.store_analysis_result(file_id, job_description_id, {
+       'candidate_info': candidate_info,
+       'score_result': score_result
+   })
+   ```
+
+## Step 5: API Endpoint Updates
+1. Update the analyze endpoint to include file storage and Qwen processing:
+   ```python
+   @router.post("/analyze")
+   async def analyze_resume(
+       resume: UploadFile = File(...),
+       job_description: str = Form(...),
+       folder_id: str = Form(...),
+       user_id: str = Form(...)
+   ) -> Dict[str, Any]:
+       # Extract text from resume
+       # Process with Qwen to extract candidate info
+       # Calculate match score
+       # Store results in Supabase
+       # Return analysis result with ID
+   ```
+
+2. Add a batch processing endpoint:
+   ```python
+   @router.post("/analyze-batch")
+   async def analyze_batch(
+       resumes: List[UploadFile] = File(...),
+       job_description: str = Form(...),
+       folder_id: str = Form(...),
+       user_id: str = Form(...)
+   ) -> Dict[str, Any]:
+       # Process multiple resumes
+       # Return results array
+   ```
+
+3. Add endpoints for retrieving analysis results:
+   ```python
+   @router.get("/analysis/{analysis_id}")
+   async def get_analysis(analysis_id: str):
+       # Retrieve a specific analysis result
+       
+   @router.get("/analyses/folder/{folder_id}")
+   async def get_folder_analyses(folder_id: str):
+       # Retrieve all analyses for a folder
+   ```
+
+## Step 6: Frontend Integration
+1. Update the ATSCheckerDialog component:
+   - Add state for tracking analysis progress
+   - Implement file upload with progress indicator
+   - Display loading state during analysis
+   - Show success/error messages
+
+2. Create a CandidatesTable component:
+   ```tsx
+   // CandidatesTable.tsx
+   const CandidatesTable = ({ folderId }) => {
+     const [candidates, setCandidates] = useState([]);
+     
+     // Fetch candidates for the folder
+     // Display in sortable table with match scores
+     // Implement filtering and sorting options
+   };
+   ```
+
+3. Create a CandidateProfile component:
+   ```tsx
+   // CandidateProfile.tsx
+   const CandidateProfile = ({ candidateId }) => {
+     const [profile, setProfile] = useState(null);
+     
+     // Fetch candidate profile details
+     // Display comprehensive analysis results
+     // Show match breakdown and recommendations
+   };
+   ```
+
+## Step 7: Integration Testing and Optimization
+1. Create test cases for the complete pipeline:
+   - Test with various resume formats (PDF, DOCX)
+   - Test with different job descriptions
+   - Test batch processing with multiple files
+
+2. Implement performance optimizations:
+   - Add caching for job descriptions
+   - Optimize database queries
+   - Implement background processing for large batches
+
+3. Add error handling and recovery:
+   - Implement retry logic for failed analyses
+   - Add detailed error reporting
+   - Create fallback mechanisms for each processing step
+
+## Step 8: Deployment and Monitoring
+1. Update deployment scripts:
+   - Include new dependencies
+   - Set up environment variables for Qwen API keys
+   - Configure Supabase connection
+
+2. Implement monitoring:
+   - Add logging for each processing step
+   - Create dashboard for system performance
+   - Set up alerts for processing failures
+
+## Implementation Timeline
+1. Backend Services Enhancement: 2 days
+2. Qwen Integration: 2 days
+3. Scoring System: 1 day
+4. Supabase Integration: 1 day
+5. API Updates: 1 day
+6. Frontend Components: 2 days
+7. Testing and Optimization: 2 days
+8. Deployment: 1 day
+
+Total: 12 days
