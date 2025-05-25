@@ -353,6 +353,166 @@ const ResumeDetails: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {result.aspectScores && (
+              <div>
+                <h4 className="text-xs font-medium text-gray-700 mb-1">Score Breakdown</h4>
+                <div className="grid grid-cols-2 gap-2 bg-gray-50 p-2 rounded-md">
+                  {Object.entries(result.aspectScores).map(([aspect, score], index) => {
+                    // Skip if score is 0 or undefined
+                    if (score === 0 || score === undefined) return null;
+                    
+                    // Format aspect name (convert camelCase to Title Case)
+                    const formattedAspect = aspect
+                      .replace(/([A-Z])/g, ' $1')
+                      .replace(/^./, str => str.toUpperCase());
+                    
+                    // Get appropriate color based on score value
+                    let bgColor = 'bg-red-50';
+                    let textColor = 'text-red-700';
+                    
+                    // Get the score value and scale if needed (some APIs return 0-1 scale)
+                    let scoreValue = typeof score === 'number' ? score : 
+                                  typeof score === 'string' ? parseFloat(score) : 0;
+                    
+                    // If score is in 0-1 range, scale to 0-10 for display
+                    if (scoreValue > 0 && scoreValue < 1) {
+                      scoreValue = scoreValue * 10;
+                    }
+                    
+                    if (scoreValue > 8) {
+                      bgColor = 'bg-green-50';
+                      textColor = 'text-green-700';
+                    } else if (scoreValue > 5) {
+                      bgColor = 'bg-yellow-50';
+                      textColor = 'text-yellow-700';
+                    }
+                    
+                    return (
+                      <div key={index} className="flex items-center justify-between">
+                        <span className="text-xs text-gray-600">{formattedAspect}:</span>
+                        <span className={`text-xs font-medium ${textColor} px-1.5 rounded ${bgColor}`}>
+                          {typeof scoreValue === 'number' ? scoreValue.toFixed(1) : String(scoreValue)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* File Metadata Section */}
+            {result.metadata && Object.keys(result.metadata).length > 0 && (
+              <div>
+                <h4 className="text-xs font-medium text-gray-700 mb-1">File Details</h4>
+                <div className="grid grid-cols-2 gap-2 bg-gray-50 p-2 rounded-md text-xs">
+                  {result.metadata.file_size_mb && (
+                    <>
+                      <span className="text-gray-600">File Size:</span>
+                      <span className="text-gray-800">{result.metadata.file_size_mb.toFixed(2)} MB</span>
+                    </>
+                  )}
+                  {result.metadata.pages && (
+                    <>
+                      <span className="text-gray-600">Pages:</span>
+                      <span className="text-gray-800">{result.metadata.pages}</span>
+                    </>
+                  )}
+                  {result.metadata.text_length && (
+                    <>
+                      <span className="text-gray-600">Text Length:</span>
+                      <span className="text-gray-800">{result.metadata.text_length.toLocaleString()} characters</span>
+                    </>
+                  )}
+                  {result.analyzed_at && (
+                    <>
+                      <span className="text-gray-600">Analyzed:</span>
+                      <span className="text-gray-800">{new Date(result.analyzed_at).toLocaleString()}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Candidate Information Section */}
+            {result.candidateInfo && Object.keys(result.candidateInfo).length > 0 && (
+              <div>
+                <h4 className="text-xs font-medium text-gray-700 mb-1">Candidate Information</h4>
+                <div className="bg-gray-50 p-2 rounded-md">
+                  {/* Basic Info */}
+                  {(result.candidateInfo.name || result.candidateInfo.email) && (
+                    <div className="mb-2">
+                      {result.candidateInfo.name && (
+                        <div className="flex items-center text-xs mb-1">
+                          <span className="text-gray-600 font-medium w-20">Name:</span>
+                          <span className="text-gray-800">{result.candidateInfo.name}</span>
+                        </div>
+                      )}
+                      {result.candidateInfo.email && (
+                        <div className="flex items-center text-xs mb-1">
+                          <span className="text-gray-600 font-medium w-20">Email:</span>
+                          <span className="text-gray-800">{result.candidateInfo.email}</span>
+                        </div>
+                      )}
+                      {result.candidateInfo.phone && (
+                        <div className="flex items-center text-xs mb-1">
+                          <span className="text-gray-600 font-medium w-20">Phone:</span>
+                          <span className="text-gray-800">{result.candidateInfo.phone}</span>
+                        </div>
+                      )}
+                      {result.candidateInfo.location && (
+                        <div className="flex items-center text-xs mb-1">
+                          <span className="text-gray-600 font-medium w-20">Location:</span>
+                          <span className="text-gray-800">{result.candidateInfo.location}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Skills */}
+                  {result.candidateInfo.skills && result.candidateInfo.skills.length > 0 && (
+                    <div className="mb-2">
+                      <div className="text-xs text-gray-600 font-medium mb-1">Skills:</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {result.candidateInfo.skills.map((skill, idx) => (
+                          <span key={idx} className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Experience Summary */}
+                  {result.candidateInfo.experience && result.candidateInfo.experience.length > 0 && (
+                    <div className="mb-2">
+                      <div className="text-xs text-gray-600 font-medium mb-1">Experience:</div>
+                      {result.candidateInfo.experience.map((exp, idx) => (
+                        <div key={idx} className="text-xs mb-1 pl-1 border-l-2 border-gray-200">
+                          {exp.title && <div className="font-medium">{exp.title}</div>}
+                          {exp.company && <div className="text-gray-700">{exp.company}</div>}
+                          {exp.period && <div className="text-gray-500 text-xs">{exp.period}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Education Summary */}
+                  {result.candidateInfo.education && result.candidateInfo.education.length > 0 && (
+                    <div>
+                      <div className="text-xs text-gray-600 font-medium mb-1">Education:</div>
+                      {result.candidateInfo.education.map((edu, idx) => (
+                        <div key={idx} className="text-xs mb-1 pl-1 border-l-2 border-gray-200">
+                          {edu.degree && <div className="font-medium">{edu.degree}</div>}
+                          {edu.institution && <div className="text-gray-700">{edu.institution}</div>}
+                          {edu.year && <div className="text-gray-500 text-xs">{edu.year}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

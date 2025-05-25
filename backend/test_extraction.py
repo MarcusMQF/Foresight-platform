@@ -1,45 +1,49 @@
 ***REMOVED***
 import sys
-import argparse
-from app.services.text_extraction import TextExtractionService
+from app.services.enhanced_text_extraction import EnhancedTextExtractionService
 
 def main():
-    parser = argparse.ArgumentParser(description='Test text extraction from PDF and DOCX files')
-    parser.add_argument('file_path', help='Path to the PDF or DOCX file')
-    args = parser.parse_args()
+    # Initialize the extraction service
+    extraction_service = EnhancedTextExtractionService()
     
-    file_path = args.file_path
+    # Path to the PDF file
+    pdf_path = "../samples/TanZhenYu.pdf"
     
-    if not os.path.exists(file_path):
-        print(f"Error: File '{file_path}' does not exist.")
+    # Check if the file exists
+    if not os.path.exists(pdf_path):
+        print(f"Error: File '{pdf_path}' does not exist.")
         sys.exit(1)
     
-    _, file_extension = os.path.splitext(file_path)
-    file_extension = file_extension.lower()
+    print(f"Testing extraction on file: {pdf_path}")
+    print("-" * 60)
     
-    if file_extension not in ['.pdf', '.docx']:
-        print(f"Error: Unsupported file format '{file_extension}'. Only PDF and DOCX are supported.")
-        sys.exit(1)
+    # Test extraction with primary method
+    print("Testing extraction with primary method:")
+    success, text_or_error, metadata = extraction_service.extract_text_from_pdf(pdf_path, enable_fallback=False)
     
-    extraction_service = TextExtractionService()
+    if success:
+        print(f"Primary extraction successful!")
+        print(f"Metadata: {metadata}")
+        print(f"Text length: {len(text_or_error)}")
+        print(f"First 100 chars: {text_or_error[:100]}...")
+    else:
+        print(f"Primary extraction failed: {text_or_error}")
     
-    try:
-        print(f"Extracting text from '{file_path}'...")
-        text = extraction_service.extract_text(file_path)
-        
-        if text:
-            print("\nExtracted text:")
-            print("-" * 50)
-            print(text[:1000])  # Print first 1000 characters
-            if len(text) > 1000:
-                print("...")
-                print(f"\nTotal text length: {len(text)} characters")
-            print("-" * 50)
-        else:
-            print("Failed to extract text from the file.")
-    except Exception as e:
-        print(f"Error: {e}")
-        sys.exit(1)
+    print("-" * 60)
+    
+    # Test extraction with fallback methods
+    print("Testing extraction with fallback methods:")
+    success, text_or_error, metadata = extraction_service.extract_text_from_pdf(pdf_path, enable_fallback=True)
+    
+    if success:
+        print(f"Extraction successful!")
+        print(f"Method used: {metadata.get('extraction_method', 'unknown')}")
+        print(f"Status: {metadata.get('extraction_status', 'unknown')}")
+        print(f"Metadata: {metadata}")
+        print(f"Text length: {len(text_or_error)}")
+        print(f"First 100 chars: {text_or_error[:100]}...")
+    else:
+        print(f"All extraction methods failed: {text_or_error}")
 
 if __name__ == "__main__":
     main() 

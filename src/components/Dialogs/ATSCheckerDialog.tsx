@@ -1,26 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle, AlertTriangle, FileText, Zap, Clock, Settings, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
-import { AnalysisResult } from '../../services/resume-analysis.service';
+import { X, CheckCircle, AlertTriangle, FileText, Zap, Clock, Settings, ChevronDown, ChevronUp, Loader2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { AnalysisResult, AspectWeights } from '../../services/resume-analysis.service';
 import resumeAnalysisService from '../../services/resume-analysis.service';
 import { FileItem } from '../../services/documents.service';
 import { useNavigate, useParams } from 'react-router-dom';
 import WeightSlider from '../UI/WeightSlider';
 import { supabase } from '../../lib/supabase';
 
-// Define the weights interface
-interface AspectWeights {
-  skills: number;
-  experience: number;
-  achievements: number;
-  education: number;
-  culturalFit: number;
-}
-
 interface ATSCheckerDialogProps {
   isOpen: boolean;
   onClose: () => void;
   folderFiles?: FileItem[]; // Files from the current folder
 }
+
+const USE_MOCK_DATA_KEY = 'use_mock_data';
 
 const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({ 
   isOpen, 
@@ -39,6 +32,9 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
   const [showWeightSettings, setShowWeightSettings] = useState(false);
   const [filesToAnalyze, setFilesToAnalyze] = useState<FileItem[]>([]);
   const [loadingJobDescription, setLoadingJobDescription] = useState(false);
+  const [useMockData, setUseMockData] = useState<boolean>(
+    localStorage.getItem(USE_MOCK_DATA_KEY) !== 'false'
+  );
   
   // Initialize weights with default values
   const [weights, setWeights] = useState<AspectWeights>({
@@ -116,6 +112,14 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
       
       // Set batch mode if multiple files are available
       setIsBatchMode(folderFiles.length > 1);
+      
+      // Reset connection error flag in resume analysis service
+      resumeAnalysisService.resetConnectionError();
+      
+      // Check if API is available
+      resumeAnalysisService.checkApiStatus().then(isAvailable => {
+        console.log('API connection check:', isAvailable ? 'available' : 'unavailable');
+      });
       
       console.log('Files available for analysis:', folderFiles.length);
     }
@@ -339,8 +343,17 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
         console.error('Error storing job description:', jobDescError);
       }
       
-      // Run the actual analysis instead of mock analysis
-      console.log('Running real resume analysis...');
+      // Convert weights to the format expected by the API
+      const weightDict = {
+        skills: weights.skills / 100,
+        experience: weights.experience / 100,
+        achievements: weights.achievements / 100,
+        education: weights.education / 100,
+        culturalFit: weights.culturalFit / 100
+      };
+      
+      // Run the actual analysis with full parameter set
+      console.log('Running resume analysis with weights:', weightDict);
       
       let results: AnalysisResult[] = [];
       
@@ -355,21 +368,46 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           const blob = await fileData.blob();
           const fileObj = new File([blob], file.name, { type: blob.type });
           
-          // Analyze the resume
-          const result = await resumeAnalysisService.analyzeResume(fileObj, jobDescription);
+          console.log('File retrieved for analysis:', {
+            name: file.name,
+            type: blob.type,
+            size: blob.size,
+            url: file.url.substring(0, 50) + '...'
+          });
           
-          // Add file ID to the result
+          // Analyze the resume with all required parameters
+          const result = await resumeAnalysisService.analyzeResume(
+            fileObj,                // File object
+            jobDescription,         // Job description
+            folderId,               // Folder ID
+            userId,                 // User ID
+            file.id,                // File ID
+            weightDict,             // Weights
+            false                   // Use DistilBERT (false for faster processing)
+          );
+          
+          console.log('Analysis result received:', {
+            filename: result.filename,
+            score: result.score,
+            matchedKeywords: result.matchedKeywords?.length || 0,
+            missingKeywords: result.missingKeywords?.length || 0,
+            recommendations: result.recommendations?.length || 0,
+            hasAspectScores: !!result.aspectScores,
+            hasCandidateInfo: !!result.candidateInfo
+          });
+          
+          // Add file metadata to the result
           result.file_id = file.id;
           result.fileUrl = file.url;
+          result.folder_id = folderId;
           
           results = [result];
-          console.log('Analysis complete for single file');
+          console.log('Analysis complete for single file:', result);
         } catch (analyzeError) {
           console.error('Error analyzing single file:', analyzeError);
-          
-          // Fallback to mock analysis if real analysis fails
-          console.log('Falling back to mock analysis for single file');
-          results = await performMockAnalysis([filesToAnalyze[0]], true);
+          setAnalyzing(false);
+          alert(`Error analyzing resume: ${analyzeError instanceof Error ? analyzeError.message : String(analyzeError)}`);
+          return;
         }
       } else {
         // Batch analysis
@@ -379,12 +417,19 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           
           // Download all files
           const fileObjects: File[] = [];
+          const fileIdMap: Record<string, string> = {};
+          
           for (const file of filesToProcess) {
             try {
               const fileData = await fetch(file.url);
               const blob = await fileData.blob();
               const fileObj = new File([blob], file.name, { type: blob.type });
               fileObjects.push(fileObj);
+              
+              // Map file objects to IDs
+              fileIdMap[file.name] = file.id;
+              
+              console.log(`Downloaded file ${file.name} (${blob.size} bytes)`);
             } catch (downloadError) {
               console.error(`Error downloading file ${file.name}:`, downloadError);
             }
@@ -392,25 +437,52 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
           
           // Analyze all resumes
           if (fileObjects.length > 0) {
-            const batchResults = await resumeAnalysisService.analyzeFolderContent(fileObjects, jobDescription);
+            console.log('Starting batch analysis with', fileObjects.length, 'files');
+            console.log('File ID map:', fileIdMap);
             
-            // Add file IDs to the results
-            results = batchResults.map((result, index) => {
-              return {
-                ...result,
-                file_id: filesToProcess[index].id,
-                fileUrl: filesToProcess[index].url
-              };
-            });
-            
-            console.log('Batch analysis complete for', results.length, 'files');
+            try {
+              const batchResults = await resumeAnalysisService.analyzeFolderContent(
+                fileObjects,         // Files
+                jobDescription,      // Job description
+                folderId,            // Folder ID
+                userId,              // User ID 
+                weightDict           // Weights
+              );
+              
+              console.log('Batch analysis results received:', batchResults.length);
+              
+              // Add file IDs to the results using the map
+              results = batchResults.map((result, index) => {
+                const filename = result.filename;
+                const fileId = fileIdMap[filename];
+                const fileObj = filesToProcess.find(f => f.id === fileId);
+                
+                return {
+                  ...result,
+                  file_id: fileId,
+                  fileUrl: fileObj?.url,
+                  folder_id: folderId
+                };
+              });
+              
+              console.log('Processed batch results:', results.length);
+            } catch (analysisError) {
+              console.error('Error during batch analysis:', analysisError);
+              setAnalyzing(false);
+              alert(`Error analyzing resumes: ${analysisError instanceof Error ? analysisError.message : String(analysisError)}`);
+              return;
+            }
+          } else {
+            console.error('No files could be downloaded for analysis');
+            setAnalyzing(false);
+            alert('No files could be downloaded for analysis. Please try again.');
+            return;
           }
         } catch (batchError) {
           console.error('Error with batch analysis:', batchError);
-          
-          // Fallback to mock analysis if real analysis fails
-          console.log('Falling back to mock analysis for batch');
-          results = await performMockAnalysis(filesToAnalyze, false);
+          setAnalyzing(false);
+          alert(`Error preparing batch analysis: ${batchError instanceof Error ? batchError.message : String(batchError)}`);
+          return;
         }
       }
       
@@ -432,8 +504,8 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
             }
             
             try {
-              // Create aspect scores from weights
-              const aspectScores = {
+              // Create aspect scores from weights if not already provided
+              const aspectScores = result.aspectScores || {
                 skills: result.score * (weights.skills / 100),
                 experience: result.score * (weights.experience / 100),
                 achievements: result.score * (weights.achievements / 100),
@@ -441,8 +513,17 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
                 culturalFit: result.score * (weights.culturalFit / 100)
               };
               
-              // Use a fixed achievement bonus for now
-              const achievementBonus = 5.0;
+              // Use achievement bonus from result or default
+              const achievementBonus = result.aspectScores ? 
+                (result.aspectScores.achievements || 5.0) : 5.0;
+              
+              // Clean up undefined values in aspectScores to fix TypeScript error
+              const cleanAspectScores: Record<string, number> = {};
+              Object.entries(aspectScores).forEach(([key, value]) => {
+                if (value !== undefined) {
+                  cleanAspectScores[key] = typeof value === 'number' ? value : 0;
+                }
+              });
               
               await resumeAnalysisService.storeAnalysisResult(
                 result.file_id,
@@ -451,7 +532,7 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
                 result.matchedKeywords,
                 result.missingKeywords,
                 achievementBonus,
-                aspectScores,
+                cleanAspectScores,
                 userId
               );
               console.log(`Stored analysis for file ${i+1}/${results.length}`);
@@ -750,6 +831,20 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
     );
   };
 
+  // Function to check API connection
+  const checkApiConnection = async () => {
+    resumeAnalysisService.resetConnectionError();
+    const isApiAvailable = await resumeAnalysisService.checkApiStatus();
+    return isApiAvailable;
+  };
+
+  const toggleMockData = () => {
+    const newValue = !useMockData;
+    setUseMockData(newValue);
+    localStorage.setItem(USE_MOCK_DATA_KEY, String(newValue));
+    console.log('Mock data mode set to:', newValue);
+  };
+
   if (!isOpen) return null;
   
   return (
@@ -794,6 +889,38 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
               <p className="text-xs text-gray-600">
                 Enter a job description to analyze {filesToAnalyze.length === 1 ? 'this resume' : 'these resumes'} against. 
               </p>
+              
+              {/* Debug toggle for mock data */}
+              <div className="flex items-center justify-between bg-gray-50 p-2 rounded text-xs">
+                <div className="flex items-center gap-1">
+                  <span className="text-gray-600">API Connection:</span>
+                  <button 
+                    type="button"
+                    onClick={checkApiConnection}
+                    className="text-blue-500 hover:text-blue-700"
+                  >
+                    Check Status
+                  </button>
+                </div>
+                
+                <div 
+                  className={`flex items-center gap-2 p-1 rounded ${useMockData ? 'bg-orange-100' : ''}`}
+                  onClick={toggleMockData}
+                >
+                  <span className={`${useMockData ? 'text-orange-700 font-medium' : 'text-gray-600'}`}>
+                    Use Mock Data:
+                  </span>
+                  <button 
+                    type="button"
+                    className="text-gray-500"
+                  >
+                    {useMockData ? 
+                      <ToggleRight className="text-orange-500" size={18} /> : 
+                      <ToggleLeft size={18} />
+                    }
+                  </button>
+                </div>
+              </div>
               
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div>
