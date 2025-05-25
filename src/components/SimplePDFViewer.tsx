@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { RefreshCw } from 'lucide-react';
+import LottieAnimation from './UI/LottieAnimation';
+import { LOADER_ANIMATION } from '../utils/animationPreloader';
 
 interface SimplePDFViewerProps {
   pdfUrl: string | null;
@@ -17,11 +19,9 @@ const SimplePDFViewer: React.FC<SimplePDFViewerProps> = ({ pdfUrl, onError }) =>
   const isBlobUrl = pdfUrl?.startsWith('blob:') ?? false;
 
   useEffect(() => {
-    // Directly use the provided URL if it's a blob URL
-    if (isBlobUrl && pdfUrl) {
-      setLoading(false);
-      return;
-    }
+    // Reset state when pdfUrl changes
+    setLoading(true);
+    setError(null);
     
     if (!pdfUrl) {
       setLoading(false);
@@ -30,21 +30,52 @@ const SimplePDFViewer: React.FC<SimplePDFViewerProps> = ({ pdfUrl, onError }) =>
       return;
     }
 
-    // Set loading state
-    setLoading(true);
-    setError(null);
-    
-  }, [pdfUrl, isBlobUrl, onError]);
+    // Handle iframe error through event listener
+    const handleIframeError = () => {
+      console.error("PDF iframe failed to load:", pdfUrl);
+      setLoading(false);
+      const errorMessage = "Failed to load PDF. The file may be corrupted or inaccessible.";
+      setError(errorMessage);
+      if (onError) onError(errorMessage);
+    };
+
+    // Add event listener to iframe
+    const iframe = iframeRef.current;
+    if (iframe) {
+      iframe.addEventListener('error', handleIframeError);
+    }
+
+    return () => {
+      // Clean up event listener
+      if (iframe) {
+        iframe.removeEventListener('error', handleIframeError);
+      }
+    };
+  }, [pdfUrl, onError]);
 
   // Handle iframe load event
   const handleIframeLoad = () => {
+    console.log("PDF iframe loaded successfully");
     setLoading(false);
+    setError(null);
   };
 
   // Handle retry button click
   const handleRetry = () => {
     if (retryCount < maxRetries) {
+      console.log(`Retrying PDF load attempt ${retryCount + 1} of ${maxRetries}`);
       setRetryCount(prev => prev + 1);
+      setLoading(true);
+      setError(null);
+      
+      // Force iframe refresh by recreating it
+      if (iframeRef.current) {
+        const currentSrc = iframeRef.current.src;
+        iframeRef.current.src = "about:blank";
+        setTimeout(() => {
+          if (iframeRef.current) iframeRef.current.src = currentSrc;
+        }, 100);
+      }
     }
   };
 
@@ -59,11 +90,13 @@ const SimplePDFViewer: React.FC<SimplePDFViewerProps> = ({ pdfUrl, onError }) =>
   return (
     <div className="w-full h-full flex flex-col">
       {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-80 z-10">
-          <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-500 mb-2"></div>
-            <p className="text-gray-600">Loading PDF...</p>
-          </div>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white bg-opacity-80 z-10">
+          <LottieAnimation 
+            animationUrl={LOADER_ANIMATION} 
+            width={80} 
+            height={80} 
+            className="opacity-75" 
+          />
         </div>
       )}
       

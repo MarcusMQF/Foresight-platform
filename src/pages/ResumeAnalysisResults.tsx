@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { FileText, Search, ArrowLeft, ArrowDown, ArrowUp, ExternalLink, Trash2, Loader2 } from 'lucide-react';
 import { AnalysisResult } from '../services/resume-analysis.service';
 import { supabase } from '../lib/supabase';
@@ -10,11 +10,11 @@ import { LOADER_ANIMATION } from '../utils/animationPreloader';
 
 const ResumeAnalysisResults: React.FC = () => {
   const navigate = useNavigate();
+  const { folderId } = useParams<{ folderId: string }>();
   const [results, setResults] = useState<AnalysisResult[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'score' | 'filename'>('score');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [folderId, setFolderId] = useState<string | null>(null);
   const [folderName, setFolderName] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -22,41 +22,41 @@ const ResumeAnalysisResults: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const atsService = new ATSService();
 
+  // Load results when component mounts
   useEffect(() => {
     // Load results from localStorage and Supabase
     const loadResults = async () => {
       setLoading(true);
-      console.log('Loading analysis results...');
       
-      // Get data from localStorage
-      const storedFolderId = localStorage.getItem('currentFolderId');
+      // Get folder ID either from URL param or localStorage
+      const storedFolderId = folderId || localStorage.getItem('currentFolderId');
       
       if (!storedFolderId) {
-        console.log('No folder ID found, redirecting to documents');
+        console.log('No folder ID available');
         setLoading(false);
+        setResults([]);
         navigate('/documents');
         return;
       }
       
-      setFolderId(storedFolderId);
-      console.log('Current folder ID:', storedFolderId);
+      // Store the folder ID in localStorage for future use
+      if (folderId) {
+        localStorage.setItem('currentFolderId', folderId);
+      }
       
-      // Get folder name
+      // Try to get folder name
       try {
-        const { data: folder, error: folderError } = await supabase
+        const { data: folderData, error: folderError } = await supabase
           .from('folders')
           .select('name')
           .eq('id', storedFolderId)
           .single();
           
-        if (folderError) {
-          console.error('Error fetching folder name:', folderError);
-        } else if (folder) {
-          setFolderName(folder.name);
-          console.log('Folder name:', folder.name);
+        if (!folderError && folderData) {
+          setFolderName(folderData.name);
         }
-      } catch (folderError) {
-        console.error('Error fetching folder name:', folderError);
+      } catch (error) {
+        console.error('Error getting folder name:', error);
       }
       
       try {
@@ -185,7 +185,7 @@ const ResumeAnalysisResults: React.FC = () => {
     };
 
     loadResults();
-  }, [navigate]);
+  }, [navigate, folderId]);
 
   // Filter results based on search term
   const filteredResults = results.filter(result =>
@@ -215,23 +215,36 @@ const ResumeAnalysisResults: React.FC = () => {
 
   // View resume details
   const viewResumeDetails = (result: AnalysisResult) => {
+    // Store the current folder ID in localStorage for use by the details page
+    if (folderId) {
+      localStorage.setItem('currentFolderId', folderId);
+    } else {
+      const storedFolderId = localStorage.getItem('currentFolderId');
+      if (!storedFolderId) {
+        // If no folder ID is available, try to get it from the result
+        if (result.folder_id) {
+          localStorage.setItem('currentFolderId', result.folder_id);
+        }
+      }
+    }
+    
+    // Add some debugging
+    console.log('Navigating to resume details:', result.filename);
+    console.log('Current folder ID:', folderId || localStorage.getItem('currentFolderId'));
+    
     // Navigate to the detailed view page
     navigate(`/resume-details/${encodeURIComponent(result.filename)}`);
   };
 
-  // Return to files view
+  // Return to files
   const returnToFiles = () => {
     if (folderId) {
-      // Double check that we have a valid folder ID
-      const storedFolderId = localStorage.getItem('currentFolderId') || folderId;
-      navigate(`/documents/${storedFolderId}`);
+      navigate(`/documents/${folderId}`);
     } else {
-      // Fallback to the folder ID in localStorage if component state doesn't have it
       const storedFolderId = localStorage.getItem('currentFolderId');
       if (storedFolderId) {
         navigate(`/documents/${storedFolderId}`);
       } else {
-        // If all else fails, go to the documents root
         navigate('/documents');
       }
     }
@@ -477,23 +490,72 @@ const ResumeAnalysisResults: React.FC = () => {
                           <div className="p-1.5 bg-gray-100 rounded mr-3">
                             <FileText size={16} className="text-gray-500" />
                           </div>
-                          <div className="text-xs text-gray-900">{result.filename}</div>
+                          <div>
+                            <div className="text-xs text-gray-900">{result.filename}</div>
+                            {result.candidateInfo?.name && (
+                              <div className="text-xs text-gray-500">{result.candidateInfo.name}</div>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="pr-9 pl-3 py-4 whitespace-nowrap text-center">
                         {renderScoreBadge(result.score)}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex flex-wrap gap-1">
-                          {result.matchedKeywords.slice(0, 3).map((keyword, i) => (
-                            <span key={i} className="inline-block px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded">
-                              {keyword}
-                            </span>
-                          ))}
-                          {result.matchedKeywords.length > 3 && (
-                            <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded">
-                              +{result.matchedKeywords.length - 3} more
-                            </span>
+                        <div className="space-y-2">
+                          {/* Matched Keywords */}
+                          <div>
+                            <div className="text-xs text-gray-500 mb-1">Matched Keywords:</div>
+                            <div className="flex flex-wrap gap-1">
+                              {result.matchedKeywords.slice(0, 3).map((keyword, i) => (
+                                <span key={i} className="inline-block px-2 py-1 bg-green-50 text-green-700 text-xs rounded">
+                                  {keyword}
+                                </span>
+                              ))}
+                              {result.matchedKeywords.length > 3 && (
+                                <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded">
+                                  +{result.matchedKeywords.length - 3} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Skills (if available) */}
+                          {result.candidateInfo?.skills && result.candidateInfo.skills.length > 0 && (
+                            <div>
+                              <div className="text-xs text-gray-500 mb-1">Skills:</div>
+                              <div className="flex flex-wrap gap-1">
+                                {result.candidateInfo.skills.slice(0, 3).map((skill, i) => (
+                                  <span key={i} className="inline-block px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded">
+                                    {skill}
+                                  </span>
+                                ))}
+                                {result.candidateInfo.skills.length > 3 && (
+                                  <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded">
+                                    +{result.candidateInfo.skills.length - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Missing Keywords (truncated) */}
+                          {result.missingKeywords && result.missingKeywords.length > 0 && (
+                            <div>
+                              <div className="text-xs text-gray-500 mb-1">Missing Keywords:</div>
+                              <div className="flex flex-wrap gap-1">
+                                {result.missingKeywords.slice(0, 2).map((keyword, i) => (
+                                  <span key={i} className="inline-block px-2 py-1 bg-red-50 text-red-700 text-xs rounded">
+                                    {keyword}
+                                  </span>
+                                ))}
+                                {result.missingKeywords.length > 2 && (
+                                  <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded">
+                                    +{result.missingKeywords.length - 2} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </div>
                       </td>

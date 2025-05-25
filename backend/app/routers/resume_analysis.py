@@ -437,4 +437,51 @@ async def delete_analysis_result(result_id: str) -> Dict[str, Any]:
     return {
         "success": success,
         "message": message
-    } 
+    }
+
+@router.post("/test-extraction")
+async def test_extraction(
+    resume: UploadFile = File(...),
+    enable_fallback_extraction: bool = Form(True)
+) -> Dict[str, Any]:
+    """
+    Test text extraction from a resume file without performing analysis
+    
+    Args:
+        resume: The resume file (PDF)
+        enable_fallback_extraction: Whether to attempt fallback extraction methods
+        
+    Returns:
+        Extraction result with status, text sample, and metadata
+    """
+    # Validate file type
+    file_ext = os.path.splitext(resume.filename)[1].lower()
+    if file_ext != '.pdf':
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+    
+    try:
+        # Read file content
+        content = await resume.read()
+        
+        # Extract text using enhanced extraction service
+        success, text_or_error, metadata = text_extraction_service.extract_text_from_upload(
+            content, 
+            resume.filename,
+            enable_fallback=enable_fallback_extraction
+        )
+        
+        if not success:
+            raise HTTPException(status_code=400, detail=f"Failed to extract text: {text_or_error}")
+        
+        # For successful extraction, return a sample of the text and full metadata
+        text_sample = text_or_error[:1000] + "..." if len(text_or_error) > 1000 else text_or_error
+        
+        return {
+            "success": True,
+            "filename": resume.filename,
+            "text_sample": text_sample,
+            "text_length": len(text_or_error),
+            "metadata": metadata
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error testing extraction: {str(e)}") 

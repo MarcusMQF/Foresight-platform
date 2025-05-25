@@ -11,6 +11,7 @@ import Help from './pages/Help';
 import CreateTeam from './pages/CreateTeam';
 import ResumeAnalysisResults from './pages/ResumeAnalysisResults';
 import ResumeDetails from './pages/ResumeDetails';
+import ResumeAnalysisTest from './pages/test/ResumeAnalysisTest';
 import { UserProvider } from './context/UserContext';
 import { TeamProvider } from './contexts/TeamContext';
 
@@ -27,12 +28,14 @@ function App() {
               <Route path="/documents/:folderId" element={<Documents />} />
               <Route path="/resume-analysis-results" element={<ResumeAnalysisResults />} />
               <Route path="/resume-details/:resultId" element={<ResumeDetails />} />
+              <Route path="/test/resume-analysis" element={<ResumeAnalysisTest />} />
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/help" element={<Help />} />
+              <Route path="/folder/:folderId/analysis-results" element={<ResumeAnalysisResults />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

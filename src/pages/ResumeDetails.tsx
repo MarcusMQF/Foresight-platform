@@ -6,6 +6,8 @@ import { DocumentsService } from '../services/documents.service';
 import { supabase } from '../lib/supabase';
 import SimplePDFViewer from '../components/SimplePDFViewer';
 import resumeAnalysisService from '../services/resume-analysis.service';
+import LottieAnimation from '../components/UI/LottieAnimation';
+import { LOADER_ANIMATION } from '../utils/animationPreloader';
 
 // Log current component version
 console.log('ResumeDetails component loaded with SimplePDFViewer');
@@ -39,118 +41,232 @@ const ResumeDetails: React.FC = () => {
   }, [pdfUrl]);
 
   useEffect(() => {
-    // Load result from localStorage or database
+    // Explicitly disable mock data in localStorage
+    localStorage.setItem('use_mock_data', 'false');
+    
+    // Load result from database only, not localStorage
     const loadResult = async () => {
       try {
         console.log('Loading result for ID:', resultId);
-        let selectedResult: AnalysisResult | null = null;
         
-        // First try to load from localStorage
-        const storedResults = localStorage.getItem('resumeAnalysisResults');
-        if (storedResults) {
-          console.log('Found results in localStorage');
-          const parsedResults = JSON.parse(storedResults) as AnalysisResult[];
-          
-          if (resultId) {
-            // Find the result with matching filename
-            selectedResult = parsedResults.find(r => r.filename === resultId) || null;
-            
-            if (selectedResult) {
-              console.log('Found result in localStorage');
-            } else {
-              console.log('Result not found in localStorage, will try database');
-            }
-          } else if (parsedResults.length > 0) {
-            // If no ID is specified, use the first result from localStorage
-            selectedResult = parsedResults[0];
-            console.log('No ID specified, using first result from localStorage');
-          }
-        }
-        
-        // If not found in localStorage, try the database
-        if (!selectedResult && resultId) {
-          console.log('Attempting to load result from database');
-          
-          try {
-            // Get current user ID
-            let userId = 'temp_user_id';
-            try {
-              const { data: { user }, error: userError } = await supabase.auth.getUser();
-              if (!userError && user) {
-                userId = user.id;
-              }
-            } catch (authError) {
-              console.error('Auth error:', authError);
-            }
-            
-            // Get current folder ID from localStorage
-            const folderId = localStorage.getItem('currentFolderId');
-            
-            if (folderId) {
-              console.log('Looking up file in database with name:', resultId);
-              
-              // First, find the file ID by filename
-              const { data: files, error: filesError } = await supabase
-                .from('files')
-                .select('id, name, url')
-                .eq('name', resultId)
-                .limit(1);
-              
-              if (filesError) {
-                console.error('Error fetching file:', filesError);
-              } else if (files && files.length > 0) {
-                console.log('Found file in database:', files[0]);
-                const fileId = files[0].id;
-                
-                // Now get the analysis result for this file
-                const { data: analysisData, error: analysisError } = await supabase
-                  .from('analysis_results')
-                  .select('*')
-                  .eq('file_id', fileId)
-                  .eq('userId', userId)
-                  .order('created_at', { ascending: false })
-                  .limit(1);
-                
-                if (analysisError) {
-                  console.error('Error fetching analysis result:', analysisError);
-                } else if (analysisData && analysisData.length > 0) {
-                  console.log('Found analysis result in database:', analysisData[0]);
-                  
-                  // Transform database result to match our AnalysisResult interface
-                  selectedResult = {
-                    id: analysisData[0].id,
-                    file_id: fileId,
-                    filename: resultId,
-                    fileUrl: files[0].url,
-                    score: analysisData[0].match_score,
-                    matchedKeywords: Array.isArray(analysisData[0].strengths) 
-                      ? analysisData[0].strengths 
-                      : JSON.parse(analysisData[0].strengths || '[]'),
-                    missingKeywords: Array.isArray(analysisData[0].weaknesses) 
-                      ? analysisData[0].weaknesses 
-                      : JSON.parse(analysisData[0].weaknesses || '[]'),
-                    recommendations: [], // We don't store recommendations in the database yet
-                    analyzed_at: analysisData[0].created_at
-                  };
-                }
-              }
-            }
-          } catch (dbError) {
-            console.error('Error retrieving from database:', dbError);
-          }
-        }
-        
-        if (selectedResult) {
-          console.log('Setting result:', selectedResult);
-          setResult(selectedResult);
-          fetchPdfUrl(selectedResult);
-        } else {
-          console.error('Result not found in localStorage or database');
+        if (!resultId) {
+          console.error('No result ID provided');
           navigate('/resume-analysis-results');
+          return;
         }
+        
+        // Get current user ID
+        let userId = 'temp_user_id';
+        try {
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+          if (!userError && user) {
+            userId = user.id;
+          }
+        } catch (authError) {
+          console.error('Auth error:', authError);
+        }
+        
+        // Get current folder ID from localStorage
+        const folderId = localStorage.getItem('currentFolderId');
+        
+        if (!folderId) {
+          console.warn('No folder ID found in localStorage, will try to find file anyway');
+        }
+        
+        console.log('Looking up file in database with name:', resultId);
+        
+        // First, find the file ID by filename
+        let query = supabase
+          .from('files')
+          .select('id, name, url')
+          .eq('name', resultId)
+          .limit(1);
+          
+        // Add folder filter if we have a folder ID
+        if (folderId) {
+          query = query.eq('folderId', folderId);
+        }
+        
+        const { data: files, error: filesError } = await query;
+        
+        if (filesError) {
+          console.error('Error fetching file:', filesError);
+          setError('Could not find the file in the database. Please try again.');
+          setIsLoading(false);
+          return;
+        }
+        
+        if (!files || files.length === 0) {
+          console.error('File not found in database:', resultId);
+          
+          // Try a more general search without folder constraint
+          if (folderId) {
+            console.log('Trying to find file without folder constraint');
+            const { data: allFiles, error: allFilesError } = await supabase
+              .from('files')
+              .select('id, name, url')
+              .eq('name', resultId)
+              .limit(1);
+              
+            if (allFilesError) {
+              console.error('Error in general file search:', allFilesError);
+              setError('Could not find the file in the database. Please try again.');
+              setIsLoading(false);
+              return;
+            }
+            
+            if (!allFiles || allFiles.length === 0) {
+              setError(`File "${resultId}" not found in any folder. Please return to results.`);
+              setIsLoading(false);
+              return;
+            }
+            
+            // We found the file in another folder
+            console.log('Found file in another folder:', allFiles[0]);
+            files.push(allFiles[0]);
+          } else {
+            setError(`File "${resultId}" not found. Please return to results.`);
+            setIsLoading(false);
+            return;
+          }
+        }
+        
+        console.log('Found file in database:', files[0]);
+        const fileId = files[0].id;
+        
+        // Now get the analysis result for this file
+        let analysisQuery = supabase
+          .from('analysis_results')
+          .select('*')
+          .eq('file_id', fileId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+          
+        // Add user filter if we have a user ID
+        if (userId && userId !== 'temp_user_id') {
+          analysisQuery = analysisQuery.eq('userId', userId);
+        }
+        
+        const { data: analysisData, error: analysisError } = await analysisQuery;
+        
+        if (analysisError) {
+          console.error('Error fetching analysis result:', analysisError);
+          setError('Could not retrieve analysis results. Please try again.');
+          setIsLoading(false);
+          return;
+        }
+        
+        if (!analysisData || analysisData.length === 0) {
+          console.error('Analysis result not found for file:', resultId);
+          
+          // Try without user constraint if we used one
+          if (userId && userId !== 'temp_user_id') {
+            console.log('Trying to find analysis without user constraint');
+            const { data: anyAnalysis, error: anyAnalysisError } = await supabase
+              .from('analysis_results')
+              .select('*')
+              .eq('file_id', fileId)
+              .order('created_at', { ascending: false })
+              .limit(1);
+              
+            if (anyAnalysisError) {
+              console.error('Error in general analysis search:', anyAnalysisError);
+              setError('No analysis found for this file. Please return to results.');
+              setIsLoading(false);
+              return;
+            }
+            
+            if (!anyAnalysis || anyAnalysis.length === 0) {
+              setError(`No analysis found for "${resultId}". Please analyze this file first.`);
+              setIsLoading(false);
+              return;
+            }
+            
+            // We found analysis from another user
+            console.log('Found analysis from another user:', anyAnalysis[0]);
+            analysisData.push(anyAnalysis[0]);
+          } else {
+            setError(`No analysis found for "${resultId}". Please analyze this file first.`);
+            setIsLoading(false);
+            return;
+          }
+        }
+        
+        console.log('Found analysis result in database:', analysisData[0]);
+        
+        // Parse strengths and weaknesses if they're stored as strings
+        let strengths = analysisData[0].strengths;
+        let weaknesses = analysisData[0].weaknesses;
+        
+        try {
+          if (typeof strengths === 'string') {
+            strengths = JSON.parse(strengths);
+          }
+        } catch (e) {
+          console.error('Error parsing strengths:', e);
+          strengths = [];
+        }
+        
+        try {
+          if (typeof weaknesses === 'string') {
+            weaknesses = JSON.parse(weaknesses);
+          }
+        } catch (e) {
+          console.error('Error parsing weaknesses:', e);
+          weaknesses = [];
+        }
+        
+        // Parse aspect scores if stored as string
+        let aspectScores = {};
+        try {
+          if (analysisData[0].aspect_scores) {
+            if (typeof analysisData[0].aspect_scores === 'string') {
+              aspectScores = JSON.parse(analysisData[0].aspect_scores);
+            } else {
+              aspectScores = analysisData[0].aspect_scores;
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing aspect scores:', e);
+        }
+        
+        // Parse candidate info if stored as string
+        let candidateInfo = {};
+        try {
+          if (analysisData[0].candidate_info) {
+            if (typeof analysisData[0].candidate_info === 'string') {
+              candidateInfo = JSON.parse(analysisData[0].candidate_info);
+            } else {
+              candidateInfo = analysisData[0].candidate_info;
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing candidate info:', e);
+        }
+        
+        // Transform database result to match our AnalysisResult interface
+        const selectedResult: AnalysisResult = {
+          id: analysisData[0].id,
+          file_id: fileId,
+          filename: resultId,
+          fileUrl: files[0].url,
+          score: analysisData[0].match_score,
+          matchedKeywords: Array.isArray(strengths) ? strengths : [],
+          missingKeywords: Array.isArray(weaknesses) ? weaknesses : [],
+          recommendations: [], // We don't store recommendations in the database yet
+          analyzed_at: analysisData[0].created_at,
+          aspectScores: aspectScores,
+          candidateInfo: candidateInfo
+        };
+        
+        console.log('Setting result:', selectedResult);
+        setResult(selectedResult);
+        setLoadAttempts(0); // Reset load attempts
+        fetchPdfUrl(selectedResult);
       } catch (error) {
         console.error('Error loading result:', error);
-        navigate('/resume-analysis-results');
+        setError('Failed to load resume details. Please try again.');
+        setIsLoading(false);
       }
     };
 
@@ -171,7 +287,7 @@ const ResumeDetails: React.FC = () => {
       
       return () => clearTimeout(timer);
     }
-  }, [error, loadAttempts, result]);
+  }, [error, loadAttempts, result, maxLoadAttempts]);
 
   // Fetch the PDF URL for the selected resume
   const fetchPdfUrl = async (selectedResult: AnalysisResult) => {
@@ -179,19 +295,24 @@ const ResumeDetails: React.FC = () => {
       setIsLoading(true);
       setError(null);
       
+      console.log('Fetching PDF for result:', selectedResult.filename);
+      
       // If the result already has a fileUrl, use it directly
       if (selectedResult.fileUrl) {
         try {
-          console.log('Getting file from storage URL:', selectedResult.fileUrl);
-          // Get a blob URL directly for the file
-          const blobUrl = await documentsService.getFileAsBlob(selectedResult.fileUrl);
+          console.log('Getting file from storage URL with retry mechanism:', selectedResult.fileUrl);
+          // Use the new retry method for more reliability
+          const blobUrl = await documentsService.getFileAsBlobWithRetry(
+            selectedResult.fileUrl,
+            maxLoadAttempts - loadAttempts // Adjust max retries based on current attempts
+          );
           console.log('Got blob URL for PDF:', blobUrl);
           
           setPdfUrl(blobUrl);
           setIsLoading(false);
           return;
         } catch (error) {
-          console.error('Error getting blob URL from fileUrl:', error);
+          console.error('Error getting blob URL from fileUrl with retry:', error);
           // Don't set error yet, try the fallback method
         }
       }
@@ -212,8 +333,11 @@ const ResumeDetails: React.FC = () => {
       if (files && files.length > 0) {
         console.log('Found file in database:', files[0]);
         try {
-          // Get a blob URL for the file
-          const blobUrl = await documentsService.getFileAsBlob(files[0].url);
+          // Get a blob URL for the file with retry mechanism
+          const blobUrl = await documentsService.getFileAsBlobWithRetry(
+            files[0].url,
+            maxLoadAttempts - loadAttempts // Adjust max retries based on current attempts
+          );
           console.log('Created blob URL for PDF:', blobUrl);
           
           setPdfUrl(blobUrl);
@@ -244,8 +368,12 @@ const ResumeDetails: React.FC = () => {
   // Return to results
   const backToResults = () => {
     // Make sure we preserve the folder ID when navigating back
-    // This ensures "Back to Files" will work on the results page
-    navigate('/resume-analysis-results');
+    const storedFolderId = localStorage.getItem('currentFolderId');
+    if (storedFolderId) {
+      navigate(`/folder/${storedFolderId}/analysis-results`);
+    } else {
+      navigate('/resume-analysis-results');
+    }
   };
 
   // Add a function to navigate directly back to files
@@ -265,14 +393,40 @@ const ResumeDetails: React.FC = () => {
     if (result) {
       setError(null);
       setIsLoading(true);
+      setLoadAttempts(loadAttempts + 1);
+      console.log(`Manual retry initiated, attempt ${loadAttempts + 1} of ${maxLoadAttempts}`);
       fetchPdfUrl(result);
+    }
+  };
+
+  // Handle PDF viewer errors
+  const handlePdfError = (errorMessage: string) => {
+    console.error('PDF viewer reported error:', errorMessage);
+    setError(errorMessage);
+    
+    // If we haven't reached max attempts, try again automatically
+    if (loadAttempts < maxLoadAttempts && result) {
+      const timer = setTimeout(() => {
+        console.log(`Auto-retrying after PDF viewer error, attempt ${loadAttempts + 1} of ${maxLoadAttempts}`);
+        setLoadAttempts(prev => prev + 1);
+        fetchPdfUrl(result);
+      }, 2000);
+      
+      return () => clearTimeout(timer);
     }
   };
 
   if (!result) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
-        <p>Loading...</p>
+      <div className="flex flex-col justify-center items-center min-h-screen">
+        <div className="-mt-20">
+          <LottieAnimation 
+            animationUrl={LOADER_ANIMATION} 
+            width={100} 
+            height={100} 
+            className="opacity-75" 
+          />
+        </div>
       </div>
     );
   }
@@ -344,12 +498,18 @@ const ResumeDetails: React.FC = () => {
               <div>
                 <h4 className="text-xs font-medium text-gray-700 mb-2">Recommendations</h4>
                 <div className="bg-orange-50 rounded p-3 space-y-2">
-                  {result.recommendations.map((recommendation, index) => (
-                    <div key={index} className="flex items-start">
-                      <Zap size={14} className="text-orange-500 mt-0.5 mr-2 flex-shrink-0" />
-                      <p className="text-xs text-orange-800">{recommendation}</p>
+                  {result.recommendations && result.recommendations.length > 0 ? (
+                    result.recommendations.map((recommendation, index) => (
+                      <div key={index} className="flex items-start">
+                        <Zap size={14} className="text-orange-500 mt-0.5 mr-2 flex-shrink-0" />
+                        <p className="text-xs text-orange-800">{recommendation}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex items-start">
+                      <p className="text-xs text-orange-800">No specific recommendations available.</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
@@ -561,8 +721,13 @@ const ResumeDetails: React.FC = () => {
 
           <div className="flex-1 overflow-auto flex justify-center p-3 bg-gray-50">
             {isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-gray-500">Loading PDF...</p>
+              <div className="flex flex-col items-center justify-center h-full">
+                <LottieAnimation 
+                  animationUrl={LOADER_ANIMATION} 
+                  width={80} 
+                  height={80} 
+                  className="opacity-75" 
+                />
               </div>
             ) : error ? (
               <div className="flex items-center justify-center h-full p-6 text-center">
@@ -572,13 +737,13 @@ const ResumeDetails: React.FC = () => {
                   className="flex items-center px-3 py-2 bg-orange-500 text-white text-sm rounded hover:bg-orange-600"
                 >
                   <RefreshCw size={14} className="mr-2" />
-                  Retry
+                  Retry ({loadAttempts + 1}/{maxLoadAttempts})
                 </button>
               </div>
             ) : pdfUrl ? (
               <SimplePDFViewer
                 pdfUrl={pdfUrl}
-                onError={(errorMsg) => setError(errorMsg)}
+                onError={handlePdfError}
               />
             ) : (
               <div className="flex items-center justify-center h-full">

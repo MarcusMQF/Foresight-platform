@@ -324,72 +324,119 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
   // Submit selected files for upload
   const handleSubmit = async () => {
-    if (selectedFiles.length === 0 || isUploading) return;
+    if (selectedFiles.length === 0) {
+      return;
+    }
+    
+    // If already uploading, don't start another upload
+    if (isUploading) {
+      return;
+    }
+    
+    // Get pending files that haven't been uploaded yet
+    const pendingFiles = selectedFiles.filter(f => f.status === 'pending');
+    
+    if (pendingFiles.length === 0) {
+      // All files are already processed
+      return;
+    }
     
     try {
-      // Start uploading files one by one
-      setCurrentUploadIndex(0);
-      let successCount = 0;
-      let errorCount = 0;
-      
-      for (let i = 0; i < selectedFiles.length; i++) {
-        // Skip files that are already uploaded or have errors
-        if (selectedFiles[i].status === 'success') {
-          successCount++;
-          continue;
-        }
-        if (selectedFiles[i].status === 'error') {
-          errorCount++;
-          continue;
-        }
+      // Process files one by one
+      for (let i = 0; i < pendingFiles.length; i++) {
+        const fileStatus = pendingFiles[i];
+        const index = selectedFiles.findIndex(f => f.file === fileStatus.file);
         
-        setCurrentUploadIndex(i);
+        if (index === -1) continue; // File not found in selectedFiles
         
-        // Update status to uploading
-        setSelectedFiles(prev => {
-          const updated = [...prev];
-          updated[i] = { ...updated[i], status: 'uploading' };
-          return updated;
-        });
+        // Update current upload index
+        setCurrentUploadIndex(index);
+        
+        // Update file status to uploading
+        const updatedFiles = [...selectedFiles];
+        updatedFiles[index] = {
+          ...updatedFiles[index],
+          status: 'uploading'
+        };
+        setSelectedFiles(updatedFiles);
         
         try {
           // Upload the file
-          await onUpload(selectedFiles[i].file);
+          await onUpload(fileStatus.file);
           
-          // Update status to success
-          setSelectedFiles(prev => {
-            const updated = [...prev];
-            updated[i] = { ...updated[i], status: 'success' };
-            return updated;
-          });
-          successCount++;
+          // Update file status to success
+          const updatedFilesAfterUpload = [...selectedFiles];
+          updatedFilesAfterUpload[index] = {
+            ...updatedFilesAfterUpload[index],
+            status: 'success'
+          };
+          setSelectedFiles(updatedFilesAfterUpload);
         } catch (error) {
-          // Update status to error
-          setSelectedFiles(prev => {
-            const updated = [...prev];
-            updated[i] = { 
-              ...updated[i], 
-              status: 'error', 
-              error: error instanceof Error ? error.message : 'Upload failed' 
-            };
-            return updated;
-          });
-          errorCount++;
+          console.error(`Error uploading file ${fileStatus.file.name}:`, error);
+          
+          // Determine error message based on error type
+          let errorMessage = "Upload failed";
+          
+          if (error instanceof Error) {
+            errorMessage = error.message;
+          }
+          
+          // Check for extraction errors
+          if (typeof error === 'object' && error !== null) {
+            const anyError = error as any;
+            
+            // Check for API extraction error response
+            if (anyError.response?.data?.detail) {
+              const detail = anyError.response.data.detail;
+              
+              if (detail.includes("Failed to extract text") || 
+                  detail.includes("PDF syntax error") || 
+                  detail.includes("Error extracting text")) {
+                errorMessage = "PDF extraction failed: The document may be corrupted or secured";
+              }
+            }
+            
+            // Check for extraction_status property in error object
+            if (anyError.metadata?.extraction_status === 'failed') {
+              errorMessage = "Failed to extract text from the PDF file";
+            }
+          }
+          
+          // Update file status to error
+          const updatedFilesWithError = [...selectedFiles];
+          updatedFilesWithError[index] = {
+            ...updatedFilesWithError[index],
+            status: 'error',
+            error: errorMessage
+          };
+          setSelectedFiles(updatedFilesWithError);
+          
+          // Add to validation errors
+          setValidationErrors(prev => ({
+            ...prev,
+            [fileStatus.file.name]: errorMessage
+          }));
         }
       }
       
       // Reset current upload index
       setCurrentUploadIndex(-1);
       
-      // Only call onComplete if all files have been processed
-      if (successCount + errorCount === selectedFiles.length && onComplete) {
-        // Add a small delay to allow the UI to update and show the green status
-        setTimeout(() => {
-          onComplete();
-        }, 800);
+      // Call onComplete callback if provided
+      if (onComplete) {
+        onComplete();
       }
     } catch (error) {
-      console.error('Error during upload process:', error);
+      console.error('Error in handleSubmit:', error);
+      
+      // Display generic error
+      setValidationErrors(prev => ({
+        ...prev,
+        general: 'An error occurred during the upload process'
+      }));
+      
+      // Reset current upload index
+      setCurrentUploadIndex(-1);
     }
   };
 

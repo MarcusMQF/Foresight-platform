@@ -26,6 +26,7 @@ import FileUploadDialog from '../components/Dialogs/FileUploadDialog';
 import DocumentsLoader from '../components/UI/DocumentsLoader';
 import ATSCheckerButton from '../components/UI/ATSCheckerButton';
 import ATSCheckerDialog from '../components/Dialogs/ATSCheckerDialog';
+import DocumentAnalysisDialog from '../components/Dialogs/DocumentAnalysisDialog';
 import { DocumentsService, FolderItem, FileItem } from '../services/documents.service';
 import resumeAnalysisService from '../services/resume-analysis.service';
 // JSZip for bundling multiple files
@@ -65,6 +66,7 @@ const Documents: React.FC = () => {
   
   // ATS checker dialog state
   const [isATSCheckerOpen, setIsATSCheckerOpen] = useState(false);
+  const [isDocumentAnalysisOpen, setIsDocumentAnalysisOpen] = useState(false);
   
   // Check if analysis results exist for current folder
   const [, setHasAnalysisResults] = useState(false);
@@ -675,7 +677,8 @@ const Documents: React.FC = () => {
       setSelectedFileIds(files.map(file => file.id));
     }
     
-    setIsATSCheckerOpen(true);
+    // Use the new DocumentAnalysisDialog
+    setIsDocumentAnalysisOpen(true);
   };
 
   // Render folder dropdown menu
@@ -1224,17 +1227,16 @@ const Documents: React.FC = () => {
         </div>
       )}
 
-      {/* ATS Checker Dialog with selected files */}
-      <ATSCheckerDialog
-        isOpen={isATSCheckerOpen}
-        onClose={() => {
-          setIsATSCheckerOpen(false);
-          // Don't clear selected files on close, as the user might want to continue working with them
-        }}
-        folderFiles={selectedFileIds.length > 0 ? 
-          files.filter(file => selectedFileIds.includes(file.id)) : 
-          files}
-      />
+      {/* Document Analysis Dialog (New multi-file analysis) */}
+      {folderId && (
+        <DocumentAnalysisDialog
+          isOpen={isDocumentAnalysisOpen}
+          onClose={() => setIsDocumentAnalysisOpen(false)}
+          folderFiles={files}
+          folderId={folderId}
+          selectedFileIds={selectedFileIds}
+        />
+      )}
     </div>
   );
 };

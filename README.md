@@ -272,3 +272,58 @@ This document outlines the requirements for a web-based platform with two primar
 - Enhanced AI (cultural fit, predictive analytics).
 - Personalized job recommendations.
 - Advanced predictive hiring analytics.
+
+## Running the Resume Analysis System
+
+To fully use the AI-powered resume analysis functionality, you need to run both the frontend application and the backend API server.
+
+### Starting the Backend API Server
+
+1. Open a terminal and navigate to the backend directory:
+   ```
+   cd backend
+   ```
+
+2. Install the required dependencies (first time only):
+   ```
+   pip install -r requirements.txt
+   ```
+
+3. Start the API server:
+   ```
+   # On Windows:
+   python -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+   
+   # On Linux/Mac:
+   ./run_api.sh
+   ```
+
+   The server will run at http://localhost:8001 (note we're using port 8001 to avoid conflicts)
+
+4. You can access the API documentation at http://localhost:8001/docs
+
+### Starting the Frontend Application
+
+1. Open a new terminal window and navigate to the project root directory
+
+2. Install the dependencies (first time only):
+   ```
+   npm install
+   ```
+
+3. Start the development server:
+   ```
+   npm run dev
+   ```
+
+4. Access the application in your browser at http://localhost:3000
+
+### Testing the Resume Analysis
+
+1. Once both the frontend and backend are running, navigate to the Resume Test page by clicking on the "Resume Test" link in the sidebar.
+
+2. Upload a PDF resume, enter a job description, and adjust weights if desired.
+
+3. Click "Test Extraction" to test the PDF text extraction, or "Analyze Resume" to perform a complete analysis.
+
+4. Review the extraction results and/or analysis results to verify that the system is working correctly.

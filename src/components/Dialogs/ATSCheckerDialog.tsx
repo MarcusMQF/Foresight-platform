@@ -254,33 +254,6 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
     });
   };
   
-  // Perform mock analysis without database dependencies
-  const performMockAnalysis = async (files: FileItem[], isSingleFile: boolean): Promise<AnalysisResult[]> => {
-    console.log(`Performing mock analysis for ${files.length} files, single file mode: ${isSingleFile}`);
-    
-    // Simulate varying analysis time
-    const delay = isSingleFile ? 2000 : Math.min(files.length * 300, 3000);
-    await new Promise(resolve => setTimeout(resolve, delay));
-    
-    const results: AnalysisResult[] = files.map((file, index) => ({
-      score: Math.floor(Math.random() * 30) + 60, // Random score between 60-90
-      matchedKeywords: ['project management', 'team leadership', 'agile', 'communication'].slice(0, 3 + index % 2),
-      missingKeywords: ['data analysis', 'python', 'machine learning'].slice(0, 2 + index % 2),
-      recommendations: [
-        'Add more specific details about your data analysis skills',
-        'Include python programming experience if applicable',
-        'Highlight any machine learning or AI projects you\'ve worked on'
-      ],
-      filename: file.name,
-      fileUrl: file.url,
-      file_id: file.id,
-      folder_id: folderId // Add folder_id to each result
-    }));
-    
-    console.log('Mock analysis completed successfully');
-    return results;
-  };
-  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -452,7 +425,7 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
               console.log('Batch analysis results received:', batchResults.length);
               
               // Add file IDs to the results using the map
-              results = batchResults.map((result, index) => {
+              results = batchResults.map((result) => {
                 const filename = result.filename;
                 const fileId = fileIdMap[filename];
                 const fileObj = filesToProcess.find(f => f.id === fileId);

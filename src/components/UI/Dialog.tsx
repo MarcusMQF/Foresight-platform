@@ -1,22 +1,27 @@
-import React, { Fragment, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 
 interface DialogProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
+  subtitle?: string | React.ReactNode;
   children: React.ReactNode;
   maxWidth?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   closeOnOutsideClick?: boolean;
+  blurBackdrop?: boolean;
 }
 
 const Dialog: React.FC<DialogProps> = ({
   isOpen,
   onClose,
   title,
+  subtitle,
   children,
   maxWidth = 'md',
-  closeOnOutsideClick = false
+  closeOnOutsideClick = false,
+  blurBackdrop = false
 }) => {
   const dialogRef = useRef<HTMLDivElement>(null);
   
@@ -67,35 +72,49 @@ const Dialog: React.FC<DialogProps> = ({
     xl: 'max-w-xl'
   };
 
-  return (
-    <Fragment>
+  // Use createPortal to render the dialog at the document root level
+  return createPortal(
+    <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity duration-300 ease-in-out" />
+      <div 
+        className={`fixed inset-0 ${
+          blurBackdrop ? 'backdrop-blur-sm bg-black/30' : 'bg-black/50'
+        }`}
+      />
       
-      {/* Dialog */}
-      <div className="fixed inset-0 z-50 overflow-y-auto">
-        <div className="flex min-h-full items-center justify-center p-4 text-center">
-          <div 
-            ref={dialogRef}
-            className={`${maxWidthClasses[maxWidth]} w-full bg-white rounded shadow-xl transform transition-all duration-300 ease-in-out`}
-          >
-            <div className="flex items-center justify-between p-4 border-b border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
-              <button 
-                onClick={onClose}
-                className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors duration-200"
-              >
-                <X size={18} />
-              </button>
+      {/* Dialog container */}
+      <div className="fixed inset-0 flex items-center justify-center p-2">
+        {/* Dialog */}
+        <div 
+          ref={dialogRef}
+          className={`${maxWidthClasses[maxWidth]} w-full bg-white rounded-md shadow-xl z-50 relative overflow-hidden`}
+          style={{ animation: 'dialogFadeIn 0.2s ease-out' }}
+        >
+          {/* Header with improved styling */}
+          <div className="flex items-center justify-between p-3 border-b border-gray-100">
+            <div>
+              <h3 className="text-sm font-medium text-gray-800">{title}</h3>
+              {subtitle && (
+                <div className="mt-0.5 text-xs text-gray-500">{subtitle}</div>
+              )}
             </div>
-            
-            <div className="p-6">
-              {children}
-            </div>
+            <button 
+              onClick={onClose}
+              className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors duration-200 focus:outline-none focus:ring-1 focus:ring-gray-200"
+              aria-label="Close dialog"
+            >
+              <X size={16} />
+            </button>
+          </div>
+          
+          {/* Content area with improved styling */}
+          <div className="p-3">
+            {children}
           </div>
         </div>
       </div>
-    </Fragment>
+    </div>,
+    document.body
   );
 };
 

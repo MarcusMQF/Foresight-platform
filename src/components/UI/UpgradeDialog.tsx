@@ -20,6 +20,7 @@ const UpgradeDialog: React.FC<UpgradeDialogProps> = ({ isOpen, onClose }) => {
       title="Upgrade to Premium"
       maxWidth="sm"
       closeOnOutsideClick={false}
+      blurBackdrop={true}
     >
       <div className="text-center px-1">
         <div className="mx-auto w-29 h-29 flex items-center justify-center mb-3 -mt-6">

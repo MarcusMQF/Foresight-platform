@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { supabase } from '../lib/supabase';
 import { ATSService } from './ats.service';
+import { API_BASE_URL, API_ENDPOINTS, getApiUrl, checkApiAvailability } from './api-config';
 
 // Define an interface for file objects with ID
 interface FileWithId extends File {
@@ -62,7 +63,7 @@ export interface AspectWeights {
 }
 
 export class ResumeAnalysisService {
-  private apiUrl = 'http://localhost:8000/api';
+  private apiUrl = getApiUrl('/api');
   private atsService: ATSService;
   private hasShownConnectionError = false;
   
@@ -74,30 +75,25 @@ export class ResumeAnalysisService {
   // Check if the API is available
   async checkApiStatus(): Promise<boolean> {
     try {
-      // Check the root endpoint first which should always be available
-      const baseUrl = 'http://localhost:8000';
-      console.log('Checking API server at:', baseUrl);
+      // Use the helper function from api-config
+      const isAvailable = await checkApiAvailability();
       
-      const response = await axios.get(baseUrl, { 
-        timeout: 3000,
-        headers: { 'Accept': 'application/json' }
-      });
+      console.log('API server is running:', isAvailable);
       
-      console.log('API server is running:', response.status === 200);
-      return response.status === 200;
-    } catch (error) {
-      console.error('API server connection failed:', error);
-      // Only show error dialog on first attempt
-      if (!this.hasShownConnectionError) {
+      if (!isAvailable && !this.hasShownConnectionError) {
         this.hasShownConnectionError = true;
         // Alert the user about the connection issue
-        const errorMessage = `Could not connect to the AI analysis server. Please make sure it is running at http://localhost:8000
+        const errorMessage = `Could not connect to the AI analysis server. Please make sure it is running at ${API_BASE_URL}
 
 To start the server:
 1. Open a terminal in the backend folder
-2. Run: python -m uvicorn app.main:app --host 0.0.0.0 --port 8000`;
+2. Run: python -m uvicorn app.main:app --host 0.0.0.0 --port 8001`;
         alert(errorMessage);
       }
+      
+      return isAvailable;
+    } catch (error) {
+      console.error('API server connection failed:', error);
       return false;
     }
   }
@@ -105,82 +101,6 @@ To start the server:
   // Reset connection error flag when the user tries again
   resetConnectionError() {
     this.hasShownConnectionError = false;
-  }
-
-  // Generate mock analysis data when API is unavailable
-  private generateMockAnalysis(filename: string): AnalysisResult {
-    // Create realistic-looking mock data
-    const score = Math.floor(Math.random() * 30) + 60; // Random score between 60-90
-    
-    // Generate aspect scores that add up to the total score
-    const aspectScores = {
-      skills: Math.round(score * 0.4 * 10) / 10,
-      experience: Math.round(score * 0.3 * 10) / 10,
-      achievements: Math.round(score * 0.2 * 10) / 10,
-      education: Math.round(score * 0.05 * 10) / 10,
-      culturalFit: Math.round(score * 0.05 * 10) / 10
-    };
-    
-    // Generate mock candidate info
-    const candidateName = filename.split('.')[0].replace(/_/g, ' ');
-    const candidateInfo = {
-      name: candidateName.toUpperCase(),
-      email: `${candidateName.toLowerCase().replace(/\s+/g, '.')}@example.com`,
-      phone: "+1 (555) 123-4567",
-      location: "San Francisco, CA",
-      skills: [
-        "JavaScript", "React", "Node.js", "TypeScript", "Python", 
-        "REST APIs", "GraphQL", "CSS", "HTML5", "Git"
-      ],
-      experience: [
-        {
-          title: "Senior Software Engineer",
-          company: "Tech Solutions Inc.",
-          period: "2020 - Present"
-        },
-        {
-          title: "Software Developer",
-          company: "WebApp Innovations",
-          period: "2017 - 2020"
-        }
-      ],
-      education: [
-        {
-          degree: "Master of Computer Science",
-          institution: "University of Technology",
-          year: "2017"
-        },
-        {
-          degree: "Bachelor of Science in Software Engineering",
-          institution: "State University",
-          year: "2015"
-        }
-      ]
-    };
-    
-    // Generate mock metadata
-    const metadata = {
-      file_name: filename,
-      file_size_mb: parseFloat((Math.random() * 2 + 0.5).toFixed(2)),
-      text_length: Math.floor(Math.random() * 15000) + 5000,
-      pages: Math.floor(Math.random() * 3) + 1
-    };
-    
-    return {
-      filename,
-      score,
-      matchedKeywords: ['project management', 'team leadership', 'agile', 'communication'].slice(0, 3),
-      missingKeywords: ['data analysis', 'python', 'machine learning'].slice(0, 2),
-      recommendations: [
-        'Add more specific details about your data analysis skills',
-        'Include python programming experience if applicable',
-        'Highlight any machine learning or AI projects you\'ve worked on'
-      ],
-      candidateInfo,
-      aspectScores,
-      metadata,
-      analyzed_at: new Date().toISOString()
-    };
   }
 
   async analyzeResume(
@@ -192,178 +112,132 @@ To start the server:
     weights: AspectWeights | null = null,
     useDistilBERT: boolean = false
   ): Promise<AnalysisResult> {
-    // Check if mock data is enabled in localStorage
-    const useMockData = localStorage.getItem('use_mock_data') === 'true';
+    // Always disable mock data
+    localStorage.setItem('use_mock_data', 'false');
     
-    if (useMockData) {
-      console.log('Using mock data as requested via settings');
-      return this.generateMockAnalysis(file.name);
+    // Check if API is available
+    const apiAvailable = await this.checkApiStatus();
+    if (!apiAvailable) {
+      console.error('API not available, returning error result');
+      return {
+        filename: file.name,
+        score: 0,
+        matchedKeywords: [],
+        missingKeywords: [],
+        recommendations: ['Could not connect to the analysis server'],
+        error: {
+          code: 'API_UNAVAILABLE',
+          message: 'The API server is not available. Please ensure it is running.'
+        }
+      };
     }
     
-    // First check if API is available
-    const isApiAvailable = await this.checkApiStatus();
+    console.log(`Analyzing resume: ${file.name}`);
+    console.log(`Job description length: ${jobDescription.length} characters`);
     
-    if (!isApiAvailable) {
-      console.warn('API server is not available, using mock data for analysis');
-      return this.generateMockAnalysis(file.name);
-    }
-    
+    // Create form data
     const formData = new FormData();
     formData.append('resume', file);
     formData.append('job_description', jobDescription);
     formData.append('folder_id', folderId);
     formData.append('user_id', userId);
+    formData.append('use_distilbert', String(useDistilBERT));
+    formData.append('enable_fallback_extraction', 'true'); // Always enable fallback extraction
     
+    // Add file ID if provided
     if (fileId) {
       formData.append('file_id', fileId);
     }
     
+    // Add weights if provided
     if (weights) {
-      formData.append('weights', JSON.stringify(weights));
+      // Ensure all weight values are valid numbers
+      const validatedWeights = { ...weights };
+      for (const key in validatedWeights) {
+        if (isNaN(validatedWeights[key as keyof AspectWeights])) {
+          validatedWeights[key as keyof AspectWeights] = 1; // Default to 1 if invalid
+        }
+      }
+      
+      // Convert weights to JSON string and log for debugging
+      const weightsJson = JSON.stringify(validatedWeights);
+      console.log('Using custom weights:', weightsJson);
+      formData.append('weights', weightsJson);
+    } else {
+      console.log('Using default weights (not provided)');
     }
     
-    // Add fallback extraction options
-    formData.append('use_distilbert', String(useDistilBERT));
-    formData.append('store_results', 'true');
-    formData.append('enable_fallback_extraction', 'true');
-    
     try {
-      console.log(`Analyzing resume: ${file.name}, folder: ${folderId}, fileId: ${fileId}`);
-      console.log('API URL:', `${this.apiUrl}/analyze`);
-      console.log('Form data:', {
-        fileSize: file.size,
-        fileName: file.name,
-        jobDescriptionLength: jobDescription.length,
-        folderId,
-        userId,
-        fileId,
-        weights: weights ? 'provided' : 'not provided',
-        useDistilBERT
-      });
-      
+      console.log('Sending analysis request to API...');
       const response = await axios.post(`${this.apiUrl}/analyze`, formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          'Content-Type': 'multipart/form-data'
         },
-        timeout: 60000, // 60 second timeout
+        timeout: 60000 // 60 seconds timeout for potentially slow extraction
       });
       
-      console.log('API response received:', response.status, response.statusText);
+      console.log('Analysis response received:', response.status);
       
-      // Transform the response to match our AnalysisResult interface
-      const data = response.data;
-      const result: AnalysisResult = {
-        filename: data.filename,
-        score: data.score,
-        matchedKeywords: data.matchedKeywords || [],
-        missingKeywords: data.missingKeywords || [],
-        recommendations: data.recommendations || [],
-        candidateInfo: data.candidateInfo,
-        aspectScores: data.aspectScores,
-        metadata: data.metadata
-      };
-      
-      // Check if there were PDF extraction issues
-      if (data.metadata && data.metadata.extraction_status === 'fallback') {
-        console.warn('PDF extraction used fallback method, text quality may be reduced');
-        // You can show a warning to the user here if needed
+      if (response.status === 200 && response.data) {
+        const result = response.data;
+        
+        // Ensure the result has the expected structure
+        const analysisResult: AnalysisResult = {
+          filename: file.name,
+          score: result.score || 0,
+          matchedKeywords: result.matchedKeywords || [],
+          missingKeywords: result.missingKeywords || [],
+          recommendations: result.recommendations || [],
+          candidateInfo: result.candidateInfo || {},
+          aspectScores: result.aspectScores || {},
+          metadata: result.metadata || {}
+        };
+        
+        // Log success for debugging
+        console.log(`Analysis complete. Score: ${analysisResult.score}`);
+        
+        return analysisResult;
+      } else {
+        throw new Error('Invalid response from API');
       }
-      
-      if (data.storage && data.storage.success && data.storage.result_id) {
-        result.id = data.storage.result_id;
-      }
-      
-      console.log('Processed result:', result);
-      return result;
     } catch (error) {
       console.error('Error analyzing resume:', error);
       
-      // Show a more specific error message
-      let errorMessage = "An error occurred while analyzing the resume.";
-      let errorCode = "unknown_error";
-      let useBackup = true;
+      // Try to extract error message
+      let errorMessage = 'Failed to analyze resume';
+      let errorDetails = null;
       
       if (axios.isAxiosError(error)) {
         if (error.response) {
-          // The request was made and the server responded with an error status
-          if (error.response.status === 500) {
-            errorMessage = "Server error (500): The analysis server encountered an internal error.";
-            errorCode = "server_error";
-            // Show error dialog
-            alert(`${errorMessage}\n\nTip: Click "Use Mock Data" to continue testing without the API.`);
-          } else if (error.response.status === 400) {
-            // Check for PDF extraction issues
-            const responseData = error.response.data;
-            if (responseData && responseData.detail && 
-                (responseData.detail.includes("PDF syntax error") || 
-                 responseData.detail.includes("Error extracting text"))) {
-              
-              errorMessage = "PDF Extraction Error: The document appears to be corrupted or uses an unsupported format.";
-              errorCode = "pdf_extraction_error";
-              alert(`${errorMessage}\n\nPlease try a different PDF file format or version.`);
-              
-              // Return a partial result with error information
-              return {
-                filename: file.name,
-                score: 0,
-                matchedKeywords: [],
-                missingKeywords: [],
-                recommendations: ["Please provide a properly formatted PDF document."],
-                error: {
-                  code: errorCode,
-                  message: errorMessage,
-                  details: responseData.detail
-                },
-                metadata: {
-                  file_name: file.name,
-                  file_size_mb: file.size / (1024 * 1024),
-                  extraction_status: 'failed'
-                }
-              };
-            } else {
-              // Other bad request errors
-              errorMessage = "Error (400): " + (error.response.data?.detail || "Invalid request format");
-              errorCode = "bad_request";
-              alert(errorMessage);
-              useBackup = false; // Don't use mock data for client errors
-              throw new Error(errorMessage);
-            }
-          } else {
-            errorMessage = `Error (${error.response.status}): ${error.response.data?.detail || error.message}`;
-            errorCode = `http_${error.response.status}`;
-            alert(errorMessage);
-          }
+          // The request was made and the server responded with a status code
+          // that falls out of the range of 2xx
+          errorMessage = error.response.data.detail || error.message;
+          errorDetails = error.response.data;
+          console.error('API error response:', error.response.data);
         } else if (error.request) {
           // The request was made but no response was received
-          errorMessage = "Network error: No response received from server. Please check your connection.";
-          errorCode = "network_error";
-          alert(errorMessage);
+          errorMessage = 'No response received from server';
         } else {
           // Something happened in setting up the request
-          errorMessage = "Request error: " + error.message;
-          errorCode = "request_setup_error";
-          alert(errorMessage);
+          errorMessage = error.message;
         }
-      } else {
-        errorMessage = "Unexpected error: " + (error instanceof Error ? error.message : String(error));
-        errorCode = "unexpected_error";
-        alert(errorMessage);
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
       }
       
-      if (useBackup) {
-        // Ask user if they want to switch to mock data
-        const useMock = confirm("Server error occurred. Would you like to use mock data for testing?");
-        if (useMock) {
-          localStorage.setItem('use_mock_data', 'true');
-          console.warn('User chose to switch to mock data');
-          return this.generateMockAnalysis(file.name);
-        } else {
-          localStorage.setItem('use_mock_data', 'false');
-          throw error;
+      // Return a structured error result
+      return {
+        filename: file.name,
+        score: 0,
+        matchedKeywords: [],
+        missingKeywords: [],
+        recommendations: [errorMessage],
+        error: {
+          code: 'ANALYSIS_FAILED',
+          message: errorMessage,
+          details: errorDetails
         }
-      }
-      
-      throw error;
+      };
     }
   }
   
@@ -375,20 +249,31 @@ To start the server:
     weights: AspectWeights | null = null,
     useDistilBERT: boolean = false
   ): Promise<AnalysisResult[]> {
-    // Check if mock data is enabled in localStorage
-    const useMockData = localStorage.getItem('use_mock_data') === 'true';
+    // Always disable mock data
+    localStorage.setItem('use_mock_data', 'false');
     
-    if (useMockData) {
-      console.log('Using mock data as requested via settings for batch analysis');
-      return files.map(file => this.generateMockAnalysis(file.name));
+    // Skip analysis if no files are provided
+    if (!files || files.length === 0) {
+      console.log('No files provided for analysis');
+      return [];
     }
     
     // First check if API is available
     const isApiAvailable = await this.checkApiStatus();
     
     if (!isApiAvailable) {
-      console.warn('API server is not available, using mock data for batch analysis');
-      return files.map(file => this.generateMockAnalysis(file.name));
+      console.error('API server is not available for batch analysis');
+      return files.map(file => ({
+        filename: file.name,
+        score: 0,
+        matchedKeywords: [],
+        missingKeywords: [],
+        recommendations: ['API server is not available. Please ensure it is running.'],
+        error: {
+          code: 'API_UNAVAILABLE',
+          message: 'The API server is not available. Please ensure it is running.'
+        }
+      }));
     }
     
     const formData = new FormData();
@@ -469,7 +354,7 @@ To start the server:
           if (error.response.status === 500) {
             errorMessage = "Server error (500): The analysis server encountered an internal error.";
             // Show error dialog
-            alert(`${errorMessage}\n\nTip: Click "Use Mock Data" to continue testing without the API.`);
+            alert(`${errorMessage}\n\nPlease check the server logs for more information.`);
           } else if (error.response.status === 400) {
             // Bad request - could be a file format issue
             errorMessage = "Error (400): " + (error.response.data?.detail || "Invalid request format");
@@ -492,10 +377,18 @@ To start the server:
         alert(errorMessage);
       }
       
-      // Enable mock data automatically after server errors
-      localStorage.setItem('use_mock_data', 'true');
-      console.warn('Automatically switching to mock data due to server error');
-      return files.map(file => this.generateMockAnalysis(file.name));
+      // Return error results for each file
+      return files.map(file => ({
+        filename: file.name,
+        score: 0,
+        matchedKeywords: [],
+        missingKeywords: [],
+        recommendations: [errorMessage],
+        error: {
+          code: 'ANALYSIS_FAILED',
+          message: errorMessage
+        }
+      }));
     }
   }
 
@@ -643,6 +536,82 @@ To start the server:
     } catch (error) {
       console.error('Error in getAnalyzedFilesInFolder:', error);
       return [];
+    }
+  }
+
+  // Test PDF text extraction without performing analysis
+  async testPdfExtraction(file: File): Promise<{
+    success: boolean;
+    filename: string;
+    text_sample?: string;
+    text_length?: number;
+    metadata?: any;
+    error?: string;
+  }> {
+    // Check if API is available
+    const apiAvailable = await this.checkApiStatus();
+    if (!apiAvailable) {
+      console.error('API not available for PDF extraction test');
+      return {
+        success: false,
+        filename: file.name,
+        error: 'The API server is not available. Please ensure it is running.'
+      };
+    }
+    
+    console.log(`Testing PDF extraction for: ${file.name}`);
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('resume', file);
+    formData.append('enable_fallback_extraction', 'true');
+    
+    try {
+      console.log('Sending test extraction request to API...');
+      const response = await axios.post(getApiUrl(API_ENDPOINTS.TEST_EXTRACTION), formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        timeout: 30000 // 30 seconds timeout for extraction
+      });
+      
+      console.log('Test extraction response received:', response.status);
+      
+      if (response.status === 200 && response.data) {
+        const result = response.data;
+        return {
+          success: true,
+          filename: file.name,
+          text_sample: result.text_sample,
+          text_length: result.text_length,
+          metadata: result.metadata
+        };
+      } else {
+        throw new Error('Invalid response from API');
+      }
+    } catch (error) {
+      console.error('Error testing PDF extraction:', error);
+      
+      // Extract error message
+      let errorMessage = 'Failed to extract text from PDF';
+      
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          errorMessage = error.response.data.detail || error.message;
+        } else if (error.request) {
+          errorMessage = 'No response received from server';
+        } else {
+          errorMessage = error.message;
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      return {
+        success: false,
+        filename: file.name,
+        error: errorMessage
+      };
     }
   }
 }

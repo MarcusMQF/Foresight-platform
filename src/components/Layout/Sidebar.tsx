@@ -8,7 +8,8 @@ import {
   Calendar, 
   Mail, 
   BarChart2, 
-  HelpCircle
+  HelpCircle,
+  FileCheck
 } from 'lucide-react';
 import { useWindowSize } from '../../hooks/useWindowSize';
 import { useTeam } from '../../contexts/TeamContext';
@@ -150,6 +151,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <NavItem icon={<Mail size={16} />} text="Messages" to="/messages" expanded={expanded} />
               <NavItem icon={<User size={16} />} text="Profile" to="/profile" expanded={expanded} />
               <NavItem icon={<BarChart2 size={16} />} text="Analytics" to="/analytics" expanded={expanded} />
+              <NavItem icon={<FileCheck size={16} />} text="Resume Test" to="/test/resume-analysis" expanded={expanded} />
             </ul>
 
             <div className="mt-6 pt-3 border-t border-gray-100">

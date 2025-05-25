@@ -669,4 +669,48 @@ export class DocumentsService {
     // Force download=true to ensure the file is downloaded instead of viewed
     return this.getFileUrl(filePath, true);
   }
+
+  /**
+   * Fetches a file as a blob URL with retry mechanism
+   * @param fileUrl The Supabase storage URL of the file
+   * @param maxRetries Maximum number of retry attempts
+   * @param retryDelay Delay between retries in milliseconds
+   * @returns A Promise that resolves to a blob URL
+   */
+  async getFileAsBlobWithRetry(
+    fileUrl: string, 
+    maxRetries: number = 3, 
+    retryDelay: number = 1500
+  ): Promise<string> {
+    let attempts = 0;
+    
+    const attempt = async (): Promise<string> => {
+      try {
+        attempts++;
+        console.log(`Attempt ${attempts}/${maxRetries + 1} to fetch file: ${fileUrl}`);
+        
+        // Use the existing method
+        const blobUrl = await this.getFileAsBlob(fileUrl);
+        console.log(`Successfully fetched file on attempt ${attempts}`);
+        return blobUrl;
+      } catch (error) {
+        console.error(`Error on attempt ${attempts}:`, error);
+        
+        if (attempts <= maxRetries) {
+          console.log(`Retrying in ${retryDelay}ms...`);
+          // Wait for the delay
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          // Exponential backoff for retry delay
+          retryDelay = Math.min(retryDelay * 1.5, 10000);
+          // Try again
+          return attempt();
+        } else {
+          console.error(`Failed after ${attempts} attempts`);
+          throw error;
+        }
+      }
+    };
+    
+    return attempt();
+  }
 } 
