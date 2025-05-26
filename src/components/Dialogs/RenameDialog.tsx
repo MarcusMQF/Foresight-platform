@@ -29,7 +29,7 @@ export default function RenameDialog({ isOpen, onClose, onSubmit, currentName }:
           <h2 className="text-sm font-medium text-gray-900">Rename Folder</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-500 transition-colors p-1 rounded-full hover:bg-gray-50"
+            className="text-gray-400 hover:text-gray-600 focus:outline-none"
           >
             <X size={14} />
           </button>

@@ -9,7 +9,8 @@ import {
   Mail, 
   BarChart2, 
   HelpCircle,
-  FileCheck
+  FileCheck,
+  Zap
 } from 'lucide-react';
 import { useWindowSize } from '../../hooks/useWindowSize';
 import { useTeam } from '../../contexts/TeamContext';
@@ -46,33 +47,25 @@ const NavItem: React.FC<NavItemProps> = ({
     <Link
       to={to}
       className={`
-        relative flex items-center py-2 px-2 my-0.5
-        mx-2
+        flex items-center py-2.5 px-3 my-1
         rounded-md cursor-pointer
-        transition-all duration-200 ease-in-out
+        transition-colors duration-200 ease-in-out
         group
         ${isActive 
-          ? 'bg-primary-500 text-white' 
-          : 'text-gray-700 hover:bg-primary-50 hover:text-primary-500'
+          ? 'bg-primary-600 text-white' 
+          : 'text-gray-200 hover:bg-gray-700 hover:text-white'
         }
       `}
     >
-      <div className={`
-        flex items-center justify-center w-6
-        transition-colors duration-200
-        ${!isActive && 'group-hover:text-primary-500'}
-      `}>
+      <div className="flex items-center justify-center w-5 h-5 flex-shrink-0">
         {icon}
       </div>
-      <span className={`
-        absolute left-[2.75rem] whitespace-nowrap
-        text-xs font-medium
-        transition-all duration-300 ease-in-out
-        ${expanded ? 'opacity-100 visible translate-x-0' : 'opacity-0 invisible -translate-x-2'}
-        ${!isActive && 'group-hover:text-primary-500'}
+      <div className={`
+        ml-3.5 whitespace-nowrap text-xs font-medium overflow-hidden transition-all duration-300
+        ${expanded ? 'w-auto opacity-100' : 'w-0 opacity-0'}
       `}>
         {text}
-      </span>
+      </div>
     </Link>
   );
 };
@@ -109,7 +102,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <aside 
         className={`
           fixed top-0 left-0 z-20 h-full
-          bg-white shadow-md
+          bg-gray-800 shadow-xl
           transition-all duration-300 ease-in-out
           ${expanded ? 'w-56' : 'w-16'}
           ${isMobile && !expanded ? '-translate-x-full' : 'translate-x-0'}
@@ -118,22 +111,22 @@ const Sidebar: React.FC<SidebarProps> = ({
         onMouseLeave={handleMouseLeave}
       >
         <div className="relative h-full flex flex-col">
-          <div className="flex items-center p-4 h-16 border-b border-gray-100">
-            <Link to="/" className="flex items-center">
-              <img src={icon} alt="Logo" className="w-8 h-8" />
-              <h1 className={`
-                absolute left-[4rem]
-                font-bold text-2xl tracking-widest text-primary-500 font-chill-chirp
-                transition-all duration-300 ease-in-out
-                ${expanded ? 'opacity-100 visible translate-x-0' : 'opacity-0 invisible -translate-x-2'}
+          <div className="flex items-center h-16 px-3 border-b border-gray-700">
+            <Link to="/" className="flex items-center pl-1">
+              <img src={icon} alt="Logo" className="w-8 h-8 flex-shrink-0" />
+              <div className={`
+                ml-4 whitespace-nowrap overflow-hidden transition-all duration-300
+                ${expanded ? 'w-auto opacity-100' : 'w-0 opacity-0'}
               `}>
-                FORESIGHT
-              </h1>
+                <h1 className="font-bold text-2xl tracking-widest text-primary-500 font-chill-chirp">
+                  FORESIGHT
+                </h1>
+              </div>
             </Link>
           </div>
 
           {/* Team Selector */}
-          <div className="px-2 py-3 border-b border-gray-100">
+          <div className="px-3 py-3 border-b border-gray-700">
             <TeamSelector
               expanded={expanded}
               currentTeam={currentTeam}
@@ -143,8 +136,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             />
           </div>
 
-          <nav className="flex-1 px-2 py-3 overflow-y-auto">
-            <ul>
+          <nav className="flex-1 px-3 py-3 overflow-y-auto">
+            <ul className="space-y-1">
               <NavItem icon={<Home size={16} />} text="Home" to="/" expanded={expanded} />
               <NavItem icon={<FileText size={16} />} text="Documents" to="/documents" expanded={expanded} />
               <NavItem icon={<Calendar size={16} />} text="Calendar" to="/calendar" expanded={expanded} />
@@ -154,35 +147,38 @@ const Sidebar: React.FC<SidebarProps> = ({
               <NavItem icon={<FileCheck size={16} />} text="Resume Test" to="/test/resume-analysis" expanded={expanded} />
             </ul>
 
-            <div className="mt-6 pt-3 border-t border-gray-100">
-              <ul>
+            <div className="mt-6 pt-3 border-t border-gray-700">
+              <ul className="space-y-1">
                 <NavItem icon={<Settings size={16} />} text="Settings" to="/settings" expanded={expanded} />
                 <NavItem icon={<HelpCircle size={16} />} text="Help" to="/help" expanded={expanded} />
               </ul>
             </div>
           </nav>
           
-          <div className="px-2 mt-auto mb-4">
-            <div className={`
-              rounded-lg 
-              transition-all duration-300 ease-in-out
-              ${expanded 
-                ? 'opacity-100 h-[100px] mx-2' 
-                : 'opacity-0 h-0'
-              }
-            `}>
+          <div className={`
+            px-3 mt-auto mb-10
+            transition-opacity duration-300 ease-in-out
+            ${expanded ? 'opacity-100' : 'opacity-0 h-0 overflow-hidden'}
+          `}>
+            <div className="rounded-lg bg-gray-700 p-3 mx-auto w-[calc(100%-6px)]">
               <div className="flex items-center">
                 <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                  <img src={upgradeIcon} alt="Upgrade" className="w-full h-full object-contain" />
+                  <img src={upgradeIcon} alt="Upgrade" className="w-5 h-5 object-contain" />
                 </div>
-                <div className="ml-2 whitespace-nowrap">
-                  <p className="text-xs font-medium text-gray-800">Pro Plan</p>
-                  <p className="text-[10px] text-gray-500">Upgrade features</p>
+                <div className={`
+                  ml-2 transition-all duration-300 ease-in-out
+                  ${expanded ? 'opacity-100 max-h-12' : 'opacity-0 max-h-0 overflow-hidden'}
+                `}>
+                  <p className="text-xs font-medium text-white">Pro Plan</p>
+                  <p className="text-[10px] text-gray-300">Upgrade features</p>
                 </div>
               </div>
               <button 
                 onClick={handleUpgradeClick}
-                className="mt-2 w-full py-2 bg-primary-500 hover:bg-primary-600 text-white text-xs font-medium rounded-md transition-colors duration-200"
+                className={`
+                  mt-2 py-2 bg-primary-500 hover:bg-primary-600 text-white text-xs font-medium rounded-md transition-all duration-300
+                  ${expanded ? 'opacity-100 w-full h-8' : 'opacity-0 h-0 w-0 overflow-hidden'}
+                `}
               >
                 Upgrade
               </button>

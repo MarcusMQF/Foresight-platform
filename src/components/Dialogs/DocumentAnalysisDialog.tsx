@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, CheckCircle, AlertTriangle, FileText, Zap, Settings, ChevronDown, ChevronUp, Loader2, ToggleLeft, ToggleRight } from 'lucide-react';
 import { AnalysisResult, AspectWeights } from '../../services/resume-analysis.service';
 import resumeAnalysisService from '../../services/resume-analysis.service';
@@ -35,6 +35,7 @@ const DocumentAnalysisDialog: React.FC<DocumentAnalysisDialogProps> = ({
   const [loadingJobDescription, setLoadingJobDescription] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const userId = 'temp_user_id'; // Default user ID for now
+  const jobDescriptionRef = useRef<HTMLTextAreaElement>(null);
   
   // Initialize weights with default values
   const [weights, setWeights] = useState<AspectWeights>({
@@ -42,7 +43,7 @@ const DocumentAnalysisDialog: React.FC<DocumentAnalysisDialogProps> = ({
     experience: 1.5,
     achievements: 1.0,
     education: 0.8,
-    culturalFit: 0.7
+    culturalFit: 0.7  // We'll keep this in the state but not display it
   });
   
   // Load the last job description for this folder
@@ -484,13 +485,16 @@ const DocumentAnalysisDialog: React.FC<DocumentAnalysisDialogProps> = ({
             <label className="block text-xs font-medium text-gray-700 mb-1">
               Job Description
             </label>
-            <textarea
-              value={jobDescription}
-              onChange={(e) => setJobDescription(e.target.value)}
-              placeholder="Paste the job description here..."
-              className="w-full h-32 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-transparent"
-              disabled={loadingJobDescription}
-            />
+            <div className="p-0.5">
+              <textarea
+                ref={jobDescriptionRef}
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+                placeholder="Paste the job description here..."
+                className="w-full h-40 px-2 py-1.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500 focus:border-[1px]"
+                disabled={loadingJobDescription}
+              />
+            </div>
             {loadingJobDescription && (
               <div className="text-xs text-gray-500 mt-1 flex items-center">
                 <Loader2 size={10} className="animate-spin mr-1" />
@@ -500,69 +504,73 @@ const DocumentAnalysisDialog: React.FC<DocumentAnalysisDialogProps> = ({
           </div>
           
           {/* Weight Settings */}
-          <div className="bg-gray-50 rounded p-2">
+          <div className="bg-gray-50 rounded-lg border border-gray-100 shadow-sm overflow-hidden">
             <button
               onClick={() => setShowWeightSettings(!showWeightSettings)}
-              className="flex items-center justify-between w-full text-xs font-medium text-gray-700"
+              className="flex items-center justify-between w-full px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 transition-colors"
             >
               <div className="flex items-center">
-                <Settings size={12} className="mr-1 text-gray-500" />
-                Customize Analysis Weights
+                <Settings size={14} className="mr-2 text-primary-500" />
+                <span>Customize Analysis Weights</span>
               </div>
               {showWeightSettings ? 
-                <ChevronUp size={12} className="text-gray-500" /> : 
-                <ChevronDown size={12} className="text-gray-500" />
+                <ChevronUp size={14} className="text-gray-500" /> : 
+                <ChevronDown size={14} className="text-gray-500" />
               }
             </button>
             
             {showWeightSettings && (
-              <div className="mt-2">
-                <p className="text-xs text-gray-600 mb-2">
-                  Adjust the importance of each aspect
+              <div className="px-3 py-2 border-t border-gray-200 bg-white">
+                <p className="text-xs text-gray-600 mb-3 flex items-center">
+                  <span className="w-2 h-2 bg-primary-500 rounded-full mr-1.5"></span>
+                  Adjust the importance of each aspect in the analysis
                 </p>
                 
-                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                  <WeightSlider
-                    label="skills"
-                    value={weights.skills}
-                    onChange={(newValue) => handleWeightChange('skills', newValue)}
-                    min={0}
-                    max={5}
-                  />
-                  <WeightSlider
-                    label="experience"
-                    value={weights.experience}
-                    onChange={(newValue) => handleWeightChange('experience', newValue)}
-                    min={0}
-                    max={5}
-                  />
-                  <WeightSlider
-                    label="achievements"
-                    value={weights.achievements}
-                    onChange={(newValue) => handleWeightChange('achievements', newValue)}
-                    min={0}
-                    max={5}
-                  />
-                  <WeightSlider
-                    label="education"
-                    value={weights.education}
-                    onChange={(newValue) => handleWeightChange('education', newValue)}
-                    min={0}
-                    max={5}
-                  />
-                  <WeightSlider
-                    label="culturalFit"
-                    value={weights.culturalFit}
-                    onChange={(newValue) => handleWeightChange('culturalFit', newValue)}
-                    min={0}
-                    max={5}
-                  />
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+                    <div className="bg-white rounded-md p-2 shadow-sm border border-gray-100">
+                      <WeightSlider
+                        label="skills"
+                        value={weights.skills}
+                        onChange={(newValue) => handleWeightChange('skills', newValue)}
+                        min={0}
+                        max={5}
+                      />
+                    </div>
+                    <div className="bg-white rounded-md p-2 shadow-sm border border-gray-100">
+                      <WeightSlider
+                        label="experience"
+                        value={weights.experience}
+                        onChange={(newValue) => handleWeightChange('experience', newValue)}
+                        min={0}
+                        max={5}
+                      />
+                    </div>
+                    <div className="bg-white rounded-md p-2 shadow-sm border border-gray-100">
+                      <WeightSlider
+                        label="achievements"
+                        value={weights.achievements}
+                        onChange={(newValue) => handleWeightChange('achievements', newValue)}
+                        min={0}
+                        max={5}
+                      />
+                    </div>
+                    <div className="bg-white rounded-md p-2 shadow-sm border border-gray-100">
+                      <WeightSlider
+                        label="education"
+                        value={weights.education}
+                        onChange={(newValue) => handleWeightChange('education', newValue)}
+                        min={0}
+                        max={5}
+                      />
+                    </div>
+                  </div>
                 </div>
                 
-                <div className="flex justify-end mt-2">
+                <div className="flex justify-end mt-3">
                   <button
                     onClick={resetWeights}
-                    className="text-xs text-primary-600 hover:text-primary-800 flex items-center"
+                    className="px-2.5 py-2 text-xs bg-gray-50 hover:bg-gray-100 text-primary-600 hover:text-primary-800 rounded border border-gray-200 flex items-center transition-colors"
                   >
                     <span>Reset</span>
                   </button>
@@ -587,7 +595,7 @@ const DocumentAnalysisDialog: React.FC<DocumentAnalysisDialogProps> = ({
       <div className="border-t border-gray-200 mt-3 pt-3 flex justify-between">
         <button
           onClick={cancelDialog}
-          className="px-3 py-1 text-xs font-medium text-gray-700 hover:text-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-200 rounded"
+          className="px-2.5 py-2 text-xs font-medium text-gray-700 hover:text-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-200 rounded"
           disabled={analyzing && progress > 80}
         >
           {analyzing ? 'Cancel' : 'Close'}
@@ -597,19 +605,31 @@ const DocumentAnalysisDialog: React.FC<DocumentAnalysisDialogProps> = ({
           <button
             onClick={startAnalysis}
             disabled={selectedFileIds.length === 0 || !jobDescription || loadingJobDescription}
-            className={`px-3 py-1 rounded text-xs font-medium text-white flex items-center 
+            className={`px-3 py-2 rounded text-xs font-medium text-white flex items-center 
               ${selectedFileIds.length === 0 || !jobDescription || loadingJobDescription
                 ? 'bg-gray-400 cursor-not-allowed'
                 : 'bg-primary-500 hover:bg-primary-600'
               }`}
           >
-            <Zap size={12} className="mr-1" />
-            Analyze Files
+            <Zap size={12} className="mr-1.5" />
+            Analyze
           </button>
         )}
       </div>
     </>
   );
+  
+  // Focus job description when dialog opens and not loading
+  useEffect(() => {
+    if (isOpen && !loadingJobDescription && jobDescriptionRef.current) {
+      // Small timeout to ensure the dialog is fully rendered
+      const timer = setTimeout(() => {
+        jobDescriptionRef.current?.focus();
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, loadingJobDescription]);
   
   return (
     <Dialog
@@ -621,7 +641,7 @@ const DocumentAnalysisDialog: React.FC<DocumentAnalysisDialogProps> = ({
       closeOnOutsideClick={false}
       blurBackdrop={true}
     >
-      <div className="max-h-[60vh] overflow-y-auto pr-1">
+      <div className="max-h-[70vh] overflow-y-auto pr-1">
         {dialogContent}
       </div>
     </Dialog>

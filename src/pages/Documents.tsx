@@ -461,12 +461,19 @@ const Documents: React.FC = () => {
 
   // Handle upload completion
   const handleUploadComplete = () => {
-    // Close the dialog only if there are no errors
-    if (!uploadError) {
-      // Add a small delay to ensure the UI has updated
-      setTimeout(() => {
-        setIsUploadDialogOpen(false);
-      }, 500);
+    // Never automatically close the dialog - let the user close it manually
+    // This ensures they can see errors, duplicates, or completed uploads
+    // Keep the dialog open to maintain visual continuity
+    
+    // Refresh file list in the background
+    if (folderId) {
+      documentsService.getFiles(folderId)
+        .then(updatedFiles => {
+          setFiles(updatedFiles);
+        })
+        .catch(error => {
+          console.error('Error refreshing files:', error);
+        });
     }
   };
 
@@ -1104,7 +1111,10 @@ const Documents: React.FC = () => {
       {/* File Upload Dialog */}
       <FileUploadDialog
         isOpen={isUploadDialogOpen}
-        onClose={() => setIsUploadDialogOpen(false)}
+        onClose={() => {
+          setIsUploadDialogOpen(false);
+          setUploadError(null);
+        }}
         onUpload={handleFileUpload}
         isUploading={uploading}
         folderName={currentFolder?.name || ''}
@@ -1125,7 +1135,7 @@ const Documents: React.FC = () => {
               <h2 className="text-sm font-medium text-gray-900">Delete Multiple Files</h2>
               <button
                 onClick={() => setShowBulkDeleteConfirm(false)}
-                className="text-gray-400 hover:text-gray-500 transition-colors p-1 rounded-full hover:bg-gray-50"
+                className="text-gray-400 hover:text-gray-600 focus:outline-none"
                 disabled={bulkActionLoading}
               >
                 <X size={14} />
@@ -1181,7 +1191,7 @@ const Documents: React.FC = () => {
                     setFileToDelete(null);
                   }
                 }}
-                className="text-gray-400 hover:text-gray-500 transition-colors p-1 rounded-full hover:bg-gray-50"
+                className="text-gray-400 hover:text-gray-600 focus:outline-none"
                 disabled={singleDeleteLoading}
               >
                 <X size={14} />

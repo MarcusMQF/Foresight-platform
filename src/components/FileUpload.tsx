@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Upload, X, AlertCircle, Info, Folder, Archive, FileText, Loader } from 'lucide-react';
 
 interface FileUploadProps {
@@ -10,15 +10,32 @@ interface FileUploadProps {
   maxFilesInFolder?: number;
   onClearError?: () => void;
   onComplete?: () => void;
+  persistState?: boolean;
 }
 
 interface FileStatus {
   file: File;
   status: 'pending' | 'uploading' | 'success' | 'error';
   error?: string;
+  name: string; // Store file name separately for persistence
+  size: number; // Store file size separately for persistence
+  type: string; // Store file type separately for persistence
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ 
+interface PersistedFileStatus {
+  name: string;
+  size: number;
+  type: string;
+  status: 'pending' | 'uploading' | 'success' | 'error';
+  error?: string;
+}
+
+// Export the type for the ref
+export interface FileUploadRef {
+  clearFiles: () => void;
+}
+
+const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(({ 
   onUpload, 
   isUploading, 
   accept = ".pdf",
@@ -26,8 +43,9 @@ const FileUpload: React.FC<FileUploadProps> = ({
   maxSizeInMB = 5,
   maxFilesInFolder = 20,
   onClearError,
-  onComplete
-}) => {
+  onComplete,
+  persistState = false
+}, ref) => {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<FileStatus[]>([]);
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
@@ -41,6 +59,64 @@ const FileUpload: React.FC<FileUploadProps> = ({
   const [currentUploadIndex, setCurrentUploadIndex] = useState<number>(-1);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+
+  // Expose clearFiles method via ref
+  useImperativeHandle(ref, () => ({
+    clearFiles: () => {
+      clearFiles();
+    }
+  }));
+
+  // Try to load persisted file statuses when component mounts
+  useEffect(() => {
+    try {
+      const persistedData = localStorage.getItem('fileUploadStatuses');
+      if (persistState && persistedData) {
+        const parsedData = JSON.parse(persistedData) as PersistedFileStatus[];
+        if (Array.isArray(parsedData) && parsedData.length > 0) {
+          // Convert persisted data back to FileStatus objects
+          const fileStatuses: FileStatus[] = parsedData.map(item => {
+            // Create a placeholder File object since we can't persist the actual File
+            const fileBlob = new Blob([], { type: item.type });
+            const file = new File([fileBlob], item.name, { type: item.type });
+            
+            return {
+              file,
+              name: item.name,
+              size: item.size,
+              type: item.type,
+              status: item.status,
+              error: item.error
+            };
+          });
+          
+          setSelectedFiles(fileStatuses);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading persisted file statuses:', err);
+    }
+  }, [persistState]);
+  
+  // Persist file statuses when they change
+  useEffect(() => {
+    if (persistState && selectedFiles.length > 0) {
+      try {
+        // Convert FileStatus objects to persistable format
+        const persistableData: PersistedFileStatus[] = selectedFiles.map(item => ({
+          name: item.name || item.file.name,
+          size: item.size || item.file.size,
+          type: item.type || item.file.type,
+          status: item.status,
+          error: item.error
+        }));
+        
+        localStorage.setItem('fileUploadStatuses', JSON.stringify(persistableData));
+      } catch (err) {
+        console.error('Error persisting file statuses:', err);
+      }
+    }
+  }, [selectedFiles, persistState]);
 
   // Handle drag events
   const handleDrag = (e: React.DragEvent) => {
@@ -286,7 +362,13 @@ const FileUpload: React.FC<FileUploadProps> = ({
         return;
       }
       
-      validFiles.push({ file, status: 'pending' });
+      validFiles.push({ 
+        file, 
+        status: 'pending',
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
     });
     
     setValidationErrors(errors);
@@ -299,6 +381,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
     setValidationErrors({});
     setFolderSummary(null);
     setCurrentUploadIndex(-1);
+    
+    // Clear persisted file statuses if persistState is enabled
+    if (persistState) {
+      localStorage.removeItem('fileUploadStatuses');
+    }
     
     // Clear any upload errors via the callback
     if (onClearError) {
@@ -345,7 +432,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
       // Process files one by one
       for (let i = 0; i < pendingFiles.length; i++) {
         const fileStatus = pendingFiles[i];
-        const index = selectedFiles.findIndex(f => f.file === fileStatus.file);
+        const index = selectedFiles.findIndex(f => 
+          // Match by name and size since File objects can't be directly compared after persistence
+          f.file.name === fileStatus.file.name && 
+          f.file.size === fileStatus.file.size
+        );
         
         if (index === -1) continue; // File not found in selectedFiles
         
@@ -353,24 +444,28 @@ const FileUpload: React.FC<FileUploadProps> = ({
         setCurrentUploadIndex(index);
         
         // Update file status to uploading
-        const updatedFiles = [...selectedFiles];
-        updatedFiles[index] = {
-          ...updatedFiles[index],
-          status: 'uploading'
-        };
-        setSelectedFiles(updatedFiles);
+        setSelectedFiles(prevFiles => {
+          const updatedFiles = [...prevFiles];
+          updatedFiles[index] = {
+            ...updatedFiles[index],
+            status: 'uploading'
+          };
+          return updatedFiles;
+        });
         
         try {
           // Upload the file
           await onUpload(fileStatus.file);
           
           // Update file status to success
-          const updatedFilesAfterUpload = [...selectedFiles];
-          updatedFilesAfterUpload[index] = {
-            ...updatedFilesAfterUpload[index],
-            status: 'success'
-          };
-          setSelectedFiles(updatedFilesAfterUpload);
+          setSelectedFiles(prevFiles => {
+            const updatedFiles = [...prevFiles];
+            updatedFiles[index] = {
+              ...updatedFiles[index],
+              status: 'success'
+            };
+            return updatedFiles;
+          });
         } catch (error) {
           console.error(`Error uploading file ${fileStatus.file.name}:`, error);
           
@@ -403,13 +498,15 @@ const FileUpload: React.FC<FileUploadProps> = ({
           }
           
           // Update file status to error
-          const updatedFilesWithError = [...selectedFiles];
-          updatedFilesWithError[index] = {
-            ...updatedFilesWithError[index],
-            status: 'error',
-            error: errorMessage
-          };
-          setSelectedFiles(updatedFilesWithError);
+          setSelectedFiles(prevFiles => {
+            const updatedFiles = [...prevFiles];
+            updatedFiles[index] = {
+              ...updatedFiles[index],
+              status: 'error',
+              error: errorMessage
+            };
+            return updatedFiles;
+          });
           
           // Add to validation errors
           setValidationErrors(prev => ({
@@ -422,7 +519,11 @@ const FileUpload: React.FC<FileUploadProps> = ({
       // Reset current upload index
       setCurrentUploadIndex(-1);
       
+      // Check if any files had errors
+      const hasErrors = selectedFiles.some(file => file.status === 'error');
+      
       // Call onComplete callback if provided
+      // We'll still call this even if there are errors
       if (onComplete) {
         onComplete();
       }
@@ -472,7 +573,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
         onDragOver={handleDrag}
         onDragLeave={handleDrag}
         onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-lg p-6 text-center ${
+        className={`border-2 border-dashed rounded-md p-6 text-center ${
           dragActive ? 'border-primary-500 bg-primary-50' : 'border-gray-300 bg-gray-50'
         } ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
       >
@@ -484,7 +585,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           <button
             type="button"
             onClick={handleFileButtonClick}
-            className="text-primary-500 font-medium hover:text-primary-600 px-3 py-1 border border-primary-500 rounded text-xs inline-flex items-center focus:outline-none"
+            className="text-primary-500 font-medium hover:text-primary-600 px-3 py-1 border border-primary-500 rounded-md text-xs inline-flex items-center focus:outline-none"
             disabled={isUploading}
           >
             <Upload size={12} className="mr-1" />
@@ -493,7 +594,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
           <button
             type="button"
             onClick={handleFolderButtonClick}
-            className="text-primary-500 font-medium hover:text-primary-600 px-3 py-1 border border-primary-500 rounded text-xs inline-flex items-center focus:outline-none"
+            className="text-primary-500 font-medium hover:text-primary-600 px-3 py-1 border border-primary-500 rounded-md text-xs inline-flex items-center focus:outline-none"
             disabled={isUploading}
           >
             <Folder size={12} className="mr-1" />
@@ -531,7 +632,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
       {/* Folder Summary */}
       {folderSummary && (
-        <div className={`mt-3 p-3 border rounded-lg ${
+        <div className={`mt-3 p-3 border rounded-md ${
           folderSummary.isValid 
             ? 'bg-orange-50 border-orange-100' 
             : 'bg-red-50 border-red-100'
@@ -577,26 +678,30 @@ const FileUpload: React.FC<FileUploadProps> = ({
         </div>
       )}
 
-      {/* Validation Errors */}
-      {Object.keys(validationErrors).length > 0 && (
-        <div className="mt-3 p-3 bg-red-50 border border-red-100 rounded-lg">
+      {/* Validation Errors - Only show non-duplicate errors here */}
+      {Object.keys(validationErrors).length > 0 && 
+       Object.entries(validationErrors).some(([_, error]) => !error.includes('already exists in this folder')) && (
+        <div className="mt-3 p-3 bg-red-50 border border-red-100 rounded-md">
           <div className="flex items-center mb-1">
             <AlertCircle size={14} className="text-red-500 mr-1.5" />
             <p className="text-xs font-medium text-red-600">The following files could not be added:</p>
           </div>
           <ul className="ml-5 list-disc">
-            {Object.entries(validationErrors).map(([fileName, error]) => (
-              <li key={fileName} className="text-xs text-red-600 mt-1">
-                {fileName}: {error}
-              </li>
-            ))}
+            {Object.entries(validationErrors)
+              .filter(([_, error]) => !error.includes('already exists in this folder'))
+              .map(([fileName, error]) => (
+                <li key={fileName} className="text-xs text-red-600 mt-1">
+                  {fileName}: {error}
+                </li>
+              ))
+            }
           </ul>
         </div>
       )}
 
       {/* Duplicate Detection Info - Only show when no files selected */}
       {selectedFiles.length === 0 && !folderSummary && (
-        <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+        <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-md">
           <div className="flex items-start">
             <Info size={14} className="text-blue-500 mt-0.5 mr-1.5 flex-shrink-0" />
             <p className="text-xs text-blue-700">
@@ -608,7 +713,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
 
       {/* ZIP File and Folder Info - Only show when no files selected */}
       {selectedFiles.length === 0 && !folderSummary && (
-        <div className="mt-3 p-3 bg-orange-50 border border-orange-100 rounded-lg">
+        <div className="mt-3 p-3 bg-orange-50 border border-orange-100 rounded-md">
           <div className="flex items-start">
             <Archive size={14} className="text-orange-500 mt-0.5 mr-1.5 flex-shrink-0" />
             <p className="text-xs font-medium text-orange-600">
@@ -641,11 +746,16 @@ const FileUpload: React.FC<FileUploadProps> = ({
                     {getStatusIcon(fileStatus.status)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-700 truncate">{fileStatus.file.name}</p>
+                    <p className={`text-xs ${fileStatus.status === 'success' ? 'text-green-700 font-medium' : 'text-gray-700'} truncate`}>
+                      {fileStatus.name || fileStatus.file.name}
+                    </p>
                     <p className="text-[10px] text-gray-500">
-                      {formatFileSize(fileStatus.file.size)}
+                      {formatFileSize(fileStatus.size || fileStatus.file.size)}
                       {fileStatus.status === 'error' && (
                         <span className="text-red-500 ml-2">{fileStatus.error}</span>
+                      )}
+                      {fileStatus.status === 'success' && (
+                        <span className="text-green-600 ml-2">Uploaded successfully</span>
                       )}
                     </p>
                   </div>
@@ -673,7 +783,7 @@ const FileUpload: React.FC<FileUploadProps> = ({
               type="button"
               onClick={handleSubmit}
               disabled={isUploading || selectedFiles.length === 0}
-              className="px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded hover:bg-primary-600 transition-colors duration-200 flex items-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
+              className="px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded-md hover:bg-primary-600 transition-colors duration-200 flex items-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
             >
               {isUploading ? 'Uploading...' : 'Upload'}
             </button>
@@ -682,6 +792,6 @@ const FileUpload: React.FC<FileUploadProps> = ({
       )}
     </div>
   );
-};
+});
 
 export default FileUpload; 

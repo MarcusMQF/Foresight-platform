@@ -100,7 +100,7 @@ const Dialog: React.FC<DialogProps> = ({
             </div>
             <button 
               onClick={onClose}
-              className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors duration-200 focus:outline-none focus:ring-1 focus:ring-gray-200"
+              className="text-gray-400 hover:text-gray-600 focus:outline-none"
               aria-label="Close dialog"
             >
               <X size={16} />

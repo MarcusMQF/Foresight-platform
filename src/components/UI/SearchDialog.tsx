@@ -67,7 +67,7 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ isOpen, onClose, initialQue
               <kbd className="px-2 py-1 text-xs bg-gray-100 text-gray-500 rounded border border-gray-200">Esc</kbd>
               <button 
                 onClick={handleClose}
-                className="ml-2 p-1 rounded-full hover:bg-gray-100 text-gray-500 transition-colors"
+                className="ml-2 p-1 text-gray-500"
               >
                 <X size={18} />
               </button>

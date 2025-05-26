@@ -83,34 +83,36 @@ const TeamSelector: React.FC<TeamSelectorProps> = ({
       <div className="relative">
         <button
           onClick={toggleDropdown}
-          className="w-full h-12 flex items-center px-2 py-2 relative rounded-md hover:bg-gray-100 transition-all duration-200 ease-in-out"
+          className="w-full flex items-center rounded-md transition-colors duration-200 ease-in-out py-2"
         >
-          {/* Team Icon - Fixed position */}
-          <div className={`w-8 h-8 flex items-center justify-center rounded-md ${getCurrentTeamColor()} font-semibold text-xs flex-shrink-0 absolute left-2`}>
+          {/* Team Icon - Fixed position regardless of sidebar state */}
+          <div className={`w-8 h-8 flex items-center justify-center rounded-md ${getCurrentTeamColor()} font-semibold text-xs flex-shrink-0 ml-1`}>
             {currentTeam ? getInitials(currentTeam.name) : 'PW'}
           </div>
           
           {/* Team Name - Only visible when expanded */}
-          {expanded && (
-            <div className="ml-10 flex flex-1 items-center justify-between overflow-hidden">
-              <span className="text-xs font-medium truncate max-w-[120px]">
-                {currentTeam?.name || 'Personal Workspace'}
-              </span>
-              <ChevronDown size={14} className="transform transition flex-shrink-0 ml-1" style={{ marginLeft: '-2px' }} />
-            </div>
-          )}
+          <div className={`
+            ml-3 flex items-center justify-between overflow-hidden transition-all duration-300
+            ${expanded ? 'w-auto opacity-100' : 'w-0 opacity-0'}
+          `}>
+            <span className="text-xs font-medium text-gray-200 truncate max-w-[120px]">
+              {currentTeam?.name || 'Personal Workspace'}
+            </span>
+            <ChevronDown size={14} className="text-gray-400 transform transition flex-shrink-0 ml-1" />
+          </div>
         </button>
 
         {/* Dropdown */}
         {expanded && dropdownOpen && (
-          <div className="absolute left-0 right-0 mt-1 bg-white shadow-lg rounded-md py-1 z-30 border border-gray-100">
+          <div className="absolute left-0 right-0 mt-1 bg-gray-700 shadow-lg rounded-md py-1 z-30 border border-gray-600">
             {teams.map(team => (
               <button
                 key={team.id}
                 onClick={() => handleTeamSelect(team)}
                 className={`
                   w-full flex items-center px-3 py-2 text-left text-xs
-                  ${currentTeam?.id === team.id ? 'bg-gray-100' : 'hover:bg-gray-50'}
+                  ${currentTeam?.id === team.id ? 'bg-gray-600' : 'hover:bg-gray-600'}
+                  text-gray-200
                 `}
               >
                 <div className={`
@@ -124,10 +126,10 @@ const TeamSelector: React.FC<TeamSelectorProps> = ({
               </button>
             ))}
             
-            <div className="border-t border-gray-100 mt-1 pt-1">
+            <div className="border-t border-gray-600 mt-1 pt-1">
               <button
                 onClick={handleCreateTeam}
-                className="w-full flex items-center px-3 py-2 text-left text-xs text-primary-500 hover:bg-gray-50"
+                className="w-full flex items-center px-3 py-2 text-left text-xs text-primary-400"
               >
                 <Plus size={14} className="flex-shrink-0" />
                 <span className="ml-2">Create New Team</span>

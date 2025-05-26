@@ -14,8 +14,8 @@ const FolderView: React.FC = () => {
   const navigate = useNavigate();
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<FileStatus[]>([]);
-  const [hasAnalysisResults, setHasAnalysisResults] = useState(false);
-  const [isATSCheckerOpen, setIsATSCheckerOpen] = useState(false);
+  const [, setHasAnalysisResults] = useState(false);
+  const [, setIsATSCheckerOpen] = useState(false);
 
   useEffect(() => {
     // Check if there are analysis results for this folder
