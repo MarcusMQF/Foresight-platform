@@ -358,6 +358,13 @@ const DocumentAnalysisDialog: React.FC<DocumentAnalysisDialogProps> = ({
                   }
                 });
                 
+                // Extract HR data if available
+                const hrData = result.hrAnalysis || result.hrAssessment || result.hrRecommendations ? {
+                  hrAnalysis: result.hrAnalysis,
+                  hrAssessment: result.hrAssessment,
+                  hrRecommendations: result.hrRecommendations
+                } : undefined;
+                
                 await resumeAnalysisService.storeAnalysisResult(
                   downloadedFile.id,
                   jobDescriptionId,
@@ -366,7 +373,8 @@ const DocumentAnalysisDialog: React.FC<DocumentAnalysisDialogProps> = ({
                   result.missingKeywords,
                   achievementBonus,
                   cleanAspectScores,
-                  userId
+                  userId,
+                  hrData
                 );
                 
                 console.log(`Stored analysis for file ${i+1}/${results.length}`);

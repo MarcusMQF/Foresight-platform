@@ -1,5 +1,24 @@
 import { supabase } from '../lib/supabase';
 
+// Define HR data interface
+interface HRData {
+  hrAnalysis?: {
+    overall?: string;
+    technical?: string;
+    cultural?: string;
+    experience?: string;
+    [key: string]: string | undefined;
+  };
+  hrAssessment?: {
+    rating?: number;
+    status?: string;
+    strengths?: string[];
+    weaknesses?: string[];
+    [key: string]: any;
+  };
+  hrRecommendations?: string[];
+}
+
 export interface JobDescription {
   id: string;
   description: string;
@@ -21,6 +40,7 @@ export interface AnalysisResult {
   created_at: string;
   updated_at: string;
   userId: string;
+  hr_data?: string; // JSON string of HR data
 }
 
 export class ATSService {
@@ -155,7 +175,8 @@ export class ATSService {
     weaknesses: string[],
     achievementBonus: number,
     aspectScores: Record<string, number>,
-    userId: string
+    userId: string,
+    hrData?: HRData
   ): Promise<string | null> {
     try {
       // Check if analysis already exists for this file
@@ -168,19 +189,29 @@ export class ATSService {
       
       if (checkError) throw checkError;
       
+      // Prepare update/insert data
+      const analysisData: any = {
+        job_description_id: jobDescriptionId,
+        match_score: matchScore,
+        strengths,
+        weaknesses,
+        achievement_bonus: achievementBonus,
+        aspect_scores: aspectScores,
+      };
+      
+      // Add HR data if provided
+      if (hrData) {
+        // Convert HR data to JSON string for storage
+        analysisData.hr_data = JSON.stringify(hrData);
+      }
+      
       if (existingAnalysis) {
         // Update existing analysis
+        analysisData.updated_at = new Date().toISOString();
+        
         const { data, error } = await supabase
           .from('analysis_results')
-          .update({
-            job_description_id: jobDescriptionId,
-            match_score: matchScore,
-            strengths,
-            weaknesses,
-            achievement_bonus: achievementBonus,
-            aspect_scores: aspectScores,
-            updated_at: new Date().toISOString()
-          })
+          .update(analysisData)
           .eq('id', existingAnalysis.id)
           .select('id')
           .single();
@@ -189,18 +220,12 @@ export class ATSService {
         return data.id;
       } else {
         // Create new analysis
+        analysisData.file_id = fileId;
+        analysisData.userId = userId;
+        
         const { data, error } = await supabase
           .from('analysis_results')
-          .insert({
-            file_id: fileId,
-            job_description_id: jobDescriptionId,
-            match_score: matchScore,
-            strengths,
-            weaknesses,
-            achievement_bonus: achievementBonus,
-            aspect_scores: aspectScores,
-            userId
-          })
+          .insert(analysisData)
           .select('id')
           .single();
         

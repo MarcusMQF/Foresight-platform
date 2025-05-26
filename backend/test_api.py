@@ -144,6 +144,14 @@ async def test_analysis_endpoint(
         if response.status_code == 200:
             result = response.json()
             print(f"✅ Success! Analysis completed. Status code: {response.status_code}")
+            
+            # Print candidate information
+            if result.get('candidateInfo'):
+                candidate_info = result['candidateInfo']
+                print("\nCandidate Information:")
+                print(f"  - Name: {candidate_info.get('name', 'N/A')}")
+                print(f"  - Email: {candidate_info.get('email', 'N/A')}")
+            
             print(f"  - Match score: {result.get('score', 'N/A')}")
             print(f"  - Extraction method: {result.get('metadata', {}).get('extraction_method', 'N/A')}")
             
@@ -169,9 +177,14 @@ async def test_analysis_endpoint(
                 if len(result['missingKeywords']) > 10:
                     print(f"  - ... and {len(result['missingKeywords']) - 10} more")
             
+            # Print HR analysis and recommendations
+            if result.get('analysis'):
+                print(f"\nHR Analysis:")
+                print(f"  {result['analysis']}")
+            
             # Print recommendations
             if result.get('recommendations'):
-                print(f"\nRecommendations:")
+                print(f"\nHR Recommendations:")
                 for i, rec in enumerate(result['recommendations'], 1):
                     print(f"  {i}. {rec}")
             

@@ -47,6 +47,21 @@ export interface AnalysisResult {
     extraction_status?: 'success' | 'fallback' | 'failed';
     [key: string]: any;
   };
+  hrAnalysis?: {
+    overall?: string;
+    technical?: string;
+    cultural?: string;
+    experience?: string;
+    [key: string]: string | undefined;
+  };
+  hrAssessment?: {
+    rating?: number;
+    status?: 'qualified' | 'partially_qualified' | 'not_qualified';
+    strengths?: string[];
+    weaknesses?: string[];
+    [key: string]: any;
+  };
+  hrRecommendations?: string[];
   error?: {
     code: string;
     message: string;
@@ -101,6 +116,322 @@ To start the server:
   // Reset connection error flag when the user tries again
   resetConnectionError() {
     this.hasShownConnectionError = false;
+  }
+
+  /**
+   * Generate fallback recommendations based on missing keywords and aspect scores
+   * Used when API doesn't return recommendations
+   */
+  private generateFallbackRecommendations(
+    missingKeywords: string[] = [],
+    aspectScores: Record<string, number | undefined> = {}
+  ): string[] {
+    const recommendations: string[] = [];
+    
+    // Add recommendations based on missing keywords
+    if (missingKeywords && missingKeywords.length > 0) {
+      const topMissingKeywords = missingKeywords.slice(0, 3).join(', ');
+      recommendations.push(`Add these missing skills to your resume: ${topMissingKeywords}`);
+    }
+    
+    // Add recommendations based on aspect scores
+    if (aspectScores) {
+      if (aspectScores.skills && aspectScores.skills < 50) {
+        recommendations.push('Improve technical skills section with more relevant technologies');
+      }
+      
+      if (aspectScores.experience && aspectScores.experience < 50) {
+        recommendations.push('Enhance work experience section with more details about responsibilities and achievements');
+      }
+      
+      if (aspectScores.achievements && aspectScores.achievements < 50) {
+        recommendations.push('Add quantifiable achievements to showcase impact (e.g., increased efficiency by 20%)');
+      }
+      
+      if (aspectScores.education && aspectScores.education < 50) {
+        recommendations.push('Include more details about educational background and relevant coursework');
+      }
+    }
+    
+    // Add general recommendations if we don't have enough
+    if (recommendations.length < 2) {
+      recommendations.push('Tailor your resume specifically to this job description for better results');
+      recommendations.push('Use industry-standard keywords to improve visibility in ATS systems');
+    }
+    
+    console.log('Generated fallback recommendations:', recommendations);
+    return recommendations;
+  }
+
+  /**
+   * Generate HR analysis, assessment, and recommendations based on aspect scores and keywords
+   * Used when API doesn't return HR-specific information
+   */
+  public generateHrData(
+    score: number,
+    matchedKeywords: string[] = [],
+    missingKeywords: string[] = [],
+    aspectScores: Record<string, number | undefined> = {}
+  ): { 
+    hrAnalysis: AnalysisResult['hrAnalysis'], 
+    hrAssessment: AnalysisResult['hrAssessment'],
+    hrRecommendations: string[]
+  } {
+    // Calculate overall qualification level based on score
+    let status: 'qualified' | 'partially_qualified' | 'not_qualified' = 'not_qualified';
+    let rating = 1;
+    
+    if (score >= 85) {
+      status = 'qualified';
+      rating = 5;
+    } else if (score >= 70) {
+      status = 'qualified';
+      rating = 4;
+    } else if (score >= 60) {
+      status = 'partially_qualified';
+      rating = 3;
+    } else if (score >= 50) {
+      status = 'partially_qualified';
+      rating = 2;
+    }
+    
+    // Generate HR analysis text based on aspect scores
+    const hrAnalysis: AnalysisResult['hrAnalysis'] = {
+      overall: this.generateOverallAnalysis(score, aspectScores),
+      technical: this.generateTechnicalAnalysis(aspectScores.skills || 0, matchedKeywords, missingKeywords),
+      experience: this.generateExperienceAnalysis(aspectScores.experience || 0),
+      cultural: this.generateCulturalAnalysis(aspectScores.culturalFit || 0)
+    };
+    
+    // Generate strengths and weaknesses for HR assessment
+    const strengths: string[] = [];
+    const weaknesses: string[] = [];
+    
+    // Add strengths based on high aspect scores
+    Object.entries(aspectScores).forEach(([aspect, score]) => {
+      if (!score) return;
+      
+      if (score >= 80) {
+        switch (aspect) {
+          case 'skills':
+            strengths.push('Strong technical skill set matching job requirements');
+            break;
+          case 'experience':
+            strengths.push('Relevant work experience with clearly demonstrated achievements');
+            break;
+          case 'achievements':
+            strengths.push('Impressive achievements with quantifiable results');
+            break;
+          case 'education':
+            strengths.push('Strong educational background relevant to the position');
+            break;
+          case 'culturalFit':
+            strengths.push('Values and work style align well with company culture');
+            break;
+        }
+      } else if (score < 50) {
+        switch (aspect) {
+          case 'skills':
+            weaknesses.push('Technical skills gap in key required areas');
+            break;
+          case 'experience':
+            weaknesses.push('Limited relevant work experience for this role');
+            break;
+          case 'achievements':
+            weaknesses.push('Needs to better highlight specific achievements and contributions');
+            break;
+          case 'education':
+            weaknesses.push('Educational background doesn\'t fully align with position requirements');
+            break;
+          case 'culturalFit':
+            weaknesses.push('Potential cultural fit concerns based on resume indicators');
+            break;
+        }
+      }
+    });
+    
+    // Ensure we have at least one strength if score is decent
+    if (strengths.length === 0 && score >= 60) {
+      strengths.push('Meets basic qualifications for the position');
+    }
+    
+    // Ensure we have at least one weakness if score is low
+    if (weaknesses.length === 0 && score < 70) {
+      weaknesses.push('Resume doesn\'t fully demonstrate alignment with key job requirements');
+    }
+    
+    // Create HR assessment
+    const hrAssessment: AnalysisResult['hrAssessment'] = {
+      rating,
+      status,
+      strengths,
+      weaknesses
+    };
+    
+    // Generate HR recommendations
+    const hrRecommendations = this.generateHrRecommendations(score, status, aspectScores, missingKeywords);
+    
+    return { hrAnalysis, hrAssessment, hrRecommendations };
+  }
+  
+  /**
+   * Generate overall analysis text based on score and aspect scores
+   */
+  private generateOverallAnalysis(score: number, aspectScores: Record<string, number | undefined>): string {
+    if (score >= 85) {
+      return 'Strong candidate with excellent alignment to job requirements. Recommend advancing to interview stage.';
+    } else if (score >= 70) {
+      return 'Good candidate with solid qualifications. Worth considering for interview.';
+    } else if (score >= 60) {
+      return 'Moderate match to job requirements. May be worth interviewing if applicant pool is limited.';
+    } else {
+      return 'Limited alignment with job requirements. Consider other candidates first.';
+    }
+  }
+  
+  /**
+   * Generate technical analysis text based on skills score and keywords
+   */
+  private generateTechnicalAnalysis(
+    skillsScore: number, 
+    matchedKeywords: string[], 
+    missingKeywords: string[]
+  ): string {
+    const technicalKeywords = matchedKeywords.filter(kw => 
+      !kw.toLowerCase().includes('degree') && 
+      !kw.toLowerCase().includes('university') &&
+      !kw.toLowerCase().includes('college')
+    );
+    
+    if (skillsScore >= 80 && technicalKeywords.length > 3) {
+      return `Strong technical profile with key skills: ${technicalKeywords.slice(0, 3).join(', ')}.`;
+    } else if (skillsScore >= 60) {
+      return `Acceptable technical background, but missing some desired skills: ${missingKeywords.slice(0, 2).join(', ')}.`;
+    } else {
+      return 'Technical skills don\'t fully align with position requirements.';
+    }
+  }
+  
+  /**
+   * Generate experience analysis text based on experience score
+   */
+  private generateExperienceAnalysis(experienceScore: number): string {
+    if (experienceScore >= 80) {
+      return 'Strong relevant experience with demonstrated progression and responsibility.';
+    } else if (experienceScore >= 60) {
+      return 'Has relevant experience but may benefit from more depth in key areas.';
+    } else if (experienceScore >= 40) {
+      return 'Limited relevant experience for this role.';
+    } else {
+      return 'Experience doesn\'t align well with position requirements.';
+    }
+  }
+  
+  /**
+   * Generate cultural analysis text based on cultural fit score
+   */
+  private generateCulturalAnalysis(culturalFitScore: number): string {
+    if (culturalFitScore >= 80) {
+      return 'Background suggests strong alignment with company values and culture.';
+    } else if (culturalFitScore >= 60) {
+      return 'Appears to have reasonable cultural alignment based on background.';
+    } else {
+      return 'Cultural fit should be carefully assessed during interview process.';
+    }
+  }
+  
+  /**
+   * Generate HR recommendations based on analysis
+   */
+  private generateHrRecommendations(
+    score: number,
+    status: string,
+    aspectScores: Record<string, number | undefined>,
+    missingKeywords: string[]
+  ): string[] {
+    const recommendations: string[] = [];
+    
+    // Add recommendations based on qualification status
+    if (status === 'qualified') {
+      recommendations.push('Proceed to interview stage to evaluate candidate further');
+      
+      if (score >= 85) {
+        recommendations.push('Consider expedited interview process to secure candidate');
+      }
+    } else if (status === 'partially_qualified') {
+      recommendations.push('Consider for interview if applicant pool is limited');
+      recommendations.push('Focus interview on addressing potential skill/experience gaps');
+    } else {
+      recommendations.push('Consider other candidates who better match job requirements');
+    }
+    
+    // Add specific recommendations based on aspect scores
+    if (aspectScores.skills && aspectScores.skills < 60 && missingKeywords.length > 0) {
+      recommendations.push(`Assess proficiency in missing skills: ${missingKeywords.slice(0, 3).join(', ')}`);
+    }
+    
+    if (aspectScores.experience && aspectScores.experience < 60) {
+      recommendations.push('Verify depth of experience in key areas during interview');
+    }
+    
+    if (aspectScores.culturalFit && aspectScores.culturalFit < 70) {
+      recommendations.push('Include culture-focused questions in interview to assess alignment');
+    }
+    
+    return recommendations;
+  }
+
+  /**
+   * Generate sample candidate information if API doesn't provide it
+   * Used when candidate details are missing from API response
+   */
+  public generateCandidateInfo(
+    filename: string,
+    matchedKeywords: string[] = []
+  ): AnalysisResult['candidateInfo'] {
+    // Extract name from filename if possible
+    let name = "";
+    
+    // Try to get a name from the filename by removing extensions and underscores
+    if (filename) {
+      name = filename
+        .replace(/\.[^/.]+$/, "") // remove extension
+        .replace(/_/g, " ") // replace underscores with spaces
+        .replace(/resume|cv|application/gi, "") // remove common words
+        .replace(/\s+/g, " ") // normalize spaces
+        .trim();
+      
+      // Capitalize each word for proper name format
+      name = name.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.slice(1).toLowerCase());
+      
+      // If name is too long, it's probably not a proper name
+      if (name.length > 30) {
+        name = "";
+      }
+    }
+    
+    // Generate a candidate email based on name or a default
+    let email = "";
+    if (name) {
+      // Create email from name (first initial + last name)
+      const nameParts = name.split(" ");
+      if (nameParts.length > 1) {
+        const firstName = nameParts[0];
+        const lastName = nameParts[nameParts.length - 1];
+        email = `${firstName.charAt(0).toLowerCase()}${lastName.toLowerCase()}@example.com`;
+      } else {
+        email = `${name.toLowerCase().replace(/\s+/g, "")}@example.com`;
+      }
+    } else {
+      // Default email if we couldn't extract a name
+      email = "candidate@example.com";
+    }
+    
+    // Create a simple candidate info object with just name and email
+    return {
+      name: name || "Candidate Name",
+      email: email
+    };
   }
 
   async analyzeResume(
@@ -159,9 +490,19 @@ To start the server:
         }
       }
       
-      // Convert weights to JSON string and log for debugging
-      const weightsJson = JSON.stringify(validatedWeights);
-      console.log('Using custom weights:', weightsJson);
+      // Normalize weights to sum to 1.0
+      const totalWeight = Object.values(validatedWeights).reduce((sum, value) => sum + value, 0);
+      const normalizedWeights: AspectWeights = {
+        skills: validatedWeights.skills / totalWeight,
+        experience: validatedWeights.experience / totalWeight,
+        achievements: validatedWeights.achievements / totalWeight,
+        education: validatedWeights.education / totalWeight,
+        culturalFit: validatedWeights.culturalFit / totalWeight
+      };
+      
+      // Convert normalized weights to JSON string and log for debugging
+      const weightsJson = JSON.stringify(normalizedWeights);
+      console.log('Using normalized weights:', weightsJson);
       formData.append('weights', weightsJson);
     } else {
       console.log('Using default weights (not provided)');
@@ -188,13 +529,180 @@ To start the server:
           matchedKeywords: result.matchedKeywords || [],
           missingKeywords: result.missingKeywords || [],
           recommendations: result.recommendations || [],
-          candidateInfo: result.candidateInfo || {},
+          candidateInfo: {},
           aspectScores: result.aspectScores || {},
-          metadata: result.metadata || {}
+          metadata: result.metadata || {},
+          hrAnalysis: result.hrAnalysis || {},
+          hrAssessment: result.hrAssessment || {},
+          hrRecommendations: result.hrRecommendations || []
         };
+        
+        // Parse candidate info from API response (Python backend might use different property names)
+        if (result.candidateInfo) {
+          console.log('API returned candidate info (camelCase):', result.candidateInfo);
+          analysisResult.candidateInfo = result.candidateInfo;
+        } else if (result.candidate_info) {
+          console.log('API returned candidate_info (snake_case):', result.candidate_info);
+          // Make sure we handle conversion from snake_case to camelCase properly
+          const candidateInfo = result.candidate_info;
+          
+          // Ensure the properties are properly mapped
+          analysisResult.candidateInfo = {
+            name: candidateInfo.name,
+            email: candidateInfo.email,
+            // Map other properties if they exist
+            phone: candidateInfo.phone,
+            location: candidateInfo.location,
+            skills: candidateInfo.skills,
+            education: candidateInfo.education,
+            experience: candidateInfo.experience
+          };
+          
+          console.log('Converted candidate_info to candidateInfo:', analysisResult.candidateInfo);
+        }
+        
+        // Check if recommendations array is empty and generate fallback recommendations
+        if (!analysisResult.recommendations || analysisResult.recommendations.length === 0) {
+          console.log('No recommendations received from API, generating fallback recommendations');
+          analysisResult.recommendations = this.generateFallbackRecommendations(
+            analysisResult.missingKeywords,
+            analysisResult.aspectScores
+          );
+        }
+        
+        // Check if HR data is missing and generate it
+        if ((!analysisResult.hrAnalysis || Object.keys(analysisResult.hrAnalysis).length === 0) ||
+            (!analysisResult.hrAssessment || Object.keys(analysisResult.hrAssessment).length === 0) ||
+            (!analysisResult.hrRecommendations || analysisResult.hrRecommendations.length === 0)) {
+          console.log('HR data missing from API response, generating fallback HR data');
+          const hrData = this.generateHrData(
+            analysisResult.score,
+            analysisResult.matchedKeywords,
+            analysisResult.missingKeywords,
+            analysisResult.aspectScores
+          );
+          
+          // Only override if the API didn't provide these
+          if (!analysisResult.hrAnalysis || Object.keys(analysisResult.hrAnalysis).length === 0) {
+            analysisResult.hrAnalysis = hrData.hrAnalysis;
+          }
+          if (!analysisResult.hrAssessment || Object.keys(analysisResult.hrAssessment).length === 0) {
+            analysisResult.hrAssessment = hrData.hrAssessment;
+          }
+          if (!analysisResult.hrRecommendations || analysisResult.hrRecommendations.length === 0) {
+            analysisResult.hrRecommendations = hrData.hrRecommendations;
+          }
+        }
+        
+        // Check if candidate information is missing and generate it
+        if (!analysisResult.candidateInfo || Object.keys(analysisResult.candidateInfo).length === 0) {
+          console.log('Candidate info missing from API response, generating fallback candidate info');
+          analysisResult.candidateInfo = this.generateCandidateInfo(
+            analysisResult.filename,
+            analysisResult.matchedKeywords
+          );
+          console.log('Generated fallback candidate info:', analysisResult.candidateInfo);
+        } else {
+          console.log('Using candidate info from API:', analysisResult.candidateInfo);
+          
+          // At this point we know candidateInfo exists
+          const candidateInfo = analysisResult.candidateInfo;
+          
+          // Check if we need to unwrap from nested structure
+          if (candidateInfo && typeof candidateInfo === 'object' && !candidateInfo.name && !candidateInfo.email) {
+            // Try to see if properties are nested
+            const ci = candidateInfo as Record<string, any>;
+            const keys = Object.keys(ci);
+            
+            if (keys.length > 0 && typeof ci[keys[0]] === 'object') {
+              const nested = ci[keys[0]];
+              if (nested && (nested.name || nested.email)) {
+                // Found nested data, use it instead
+                console.log('Found nested candidate info, using it instead:', nested);
+                analysisResult.candidateInfo = nested;
+              }
+            }
+          }
+          
+          // Create a clean object with just name and email
+          // We can safely access properties now
+          const apiName = analysisResult.candidateInfo?.name;
+          const apiEmail = analysisResult.candidateInfo?.email;
+          console.log(`API provided name: "${apiName}", email: "${apiEmail}"`);
+          
+          // Create a clean object with just name and email
+          const resultCandidateInfo: AnalysisResult['candidateInfo'] = {};
+          
+          if (apiName !== undefined) {
+            resultCandidateInfo.name = apiName;
+          }
+          
+          if (apiEmail !== undefined) {
+            resultCandidateInfo.email = apiEmail;
+          }
+          
+          // Only update if we have at least one valid field
+          if (Object.keys(resultCandidateInfo).length > 0) {
+            analysisResult.candidateInfo = resultCandidateInfo;
+          }
+        }
+        
+        // Store the result in Supabase
+        if (fileId) {
+          try {
+            // First, store the job description to get a job description ID
+            let jdId = await this.storeJobDescription(
+              jobDescription,
+              folderId,
+              userId
+            );
+            
+            if (!jdId) {
+              console.warn('Could not store job description, using placeholder ID');
+              jdId = 'placeholder_jd_id';
+            }
+            
+            // Extract aspect scores for storage
+            const aspectScoresToStore: Record<string, number> = {};
+            if (analysisResult.aspectScores) {
+              Object.entries(analysisResult.aspectScores).forEach(([key, value]) => {
+                if (value !== undefined) {
+                  aspectScoresToStore[key] = value;
+                }
+              });
+            }
+            
+            // Store the HR data and candidate info as part of the result
+            const hrData = {
+              hrAnalysis: analysisResult.hrAnalysis,
+              hrAssessment: analysisResult.hrAssessment,
+              hrRecommendations: analysisResult.hrRecommendations
+            };
+            
+            await this.storeAnalysisResult(
+              fileId,
+              jdId,
+              analysisResult.score,
+              analysisResult.matchedKeywords,
+              analysisResult.missingKeywords,
+              analysisResult.aspectScores?.achievements || 0,
+              aspectScoresToStore,
+              userId,
+              hrData,
+              analysisResult.candidateInfo
+            );
+            
+            console.log('Analysis result with HR data and candidate info stored successfully');
+          } catch (storageError) {
+            console.error('Error storing analysis result:', storageError);
+            // Continue anyway since we have the analysis result
+          }
+        }
         
         // Log success for debugging
         console.log(`Analysis complete. Score: ${analysisResult.score}`);
+        console.log(`Recommendations: ${analysisResult.recommendations.length} items`);
+        console.log(`HR data included: ${!!analysisResult.hrAnalysis && !!analysisResult.hrAssessment}`);
         
         return analysisResult;
       } else {
@@ -249,26 +757,16 @@ To start the server:
     weights: AspectWeights | null = null,
     useDistilBERT: boolean = false
   ): Promise<AnalysisResult[]> {
-    // Always disable mock data
-    localStorage.setItem('use_mock_data', 'false');
-    
-    // Skip analysis if no files are provided
-    if (!files || files.length === 0) {
-      console.log('No files provided for analysis');
-      return [];
-    }
-    
-    // First check if API is available
-    const isApiAvailable = await this.checkApiStatus();
-    
-    if (!isApiAvailable) {
-      console.error('API server is not available for batch analysis');
+    // Check if API is available
+    const apiAvailable = await this.checkApiStatus();
+    if (!apiAvailable) {
+      console.error('API not available for batch analysis');
       return files.map(file => ({
         filename: file.name,
         score: 0,
         matchedKeywords: [],
         missingKeywords: [],
-        recommendations: ['API server is not available. Please ensure it is running.'],
+        recommendations: ['Could not connect to the analysis server'],
         error: {
           code: 'API_UNAVAILABLE',
           message: 'The API server is not available. Please ensure it is running.'
@@ -276,120 +774,174 @@ To start the server:
       }));
     }
     
-    const formData = new FormData();
+    console.log(`Analyzing ${files.length} resumes in folder "${folderId}"`);
     
-    // Add files to form data
-    files.forEach(file => {
-      formData.append('resumes', file);
-    });
-    
-    // Add required parameters
-    formData.append('job_description', jobDescription);
-    formData.append('folder_id', folderId);
-    formData.append('user_id', userId);
-    
-    // Prepare file_ids mapping if we have file IDs
-    const fileIdsMap: Record<string, string> = {};
-    files.forEach((file) => {
-      // Cast to FileWithId to allow access to id property
-      const fileWithId = file as FileWithId;
-      if (file.name && fileWithId.id) {
-        fileIdsMap[file.name] = fileWithId.id;
-      }
-    });
-    
-    if (Object.keys(fileIdsMap).length > 0) {
-      formData.append('file_ids', JSON.stringify(fileIdsMap));
-    }
-    
-    if (weights) {
-      formData.append('weights', JSON.stringify(weights));
-    }
-    
-    formData.append('use_distilbert', String(useDistilBERT));
-    formData.append('store_results', 'true');
-    
+    // Store job description first to get a job ID
+    let jobDescriptionId = null;
     try {
-      console.log(`Analyzing batch of ${files.length} resumes, folder: ${folderId}`);
-      console.log('API URL:', `${this.apiUrl}/analyze-batch`);
+      jobDescriptionId = await this.storeJobDescription(
+        jobDescription,
+        folderId,
+        userId
+      );
       
-      const response = await axios.post(`${this.apiUrl}/analyze-batch`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        timeout: 120000, // 120 second timeout for batch operations
-      });
-      
-      console.log('API response received:', response.status, response.statusText);
-      
-      // Transform the response to match our AnalysisResult interface
-      const results = response.data.results || [];
-      return results.map((data: any) => {
-        const result: AnalysisResult = {
-          filename: data.filename,
-          score: data.score,
-          matchedKeywords: data.matchedKeywords || [],
-          missingKeywords: data.missingKeywords || [],
-          recommendations: data.recommendations || [],
-          candidateInfo: data.candidateInfo,
-          aspectScores: data.aspectScores,
-          metadata: data.metadata
-        };
-        
-        if (data.storage && data.storage.success && data.storage.result_id) {
-          result.id = data.storage.result_id;
-        }
-        
-        return result;
-      });
-    } catch (error) {
-      console.error('Error analyzing multiple resumes:', error);
-      
-      // Show a more specific error message
-      let errorMessage = "An error occurred while analyzing the resumes.";
-      
-      if (axios.isAxiosError(error)) {
-        if (error.response) {
-          // The request was made and the server responded with an error status
-          if (error.response.status === 500) {
-            errorMessage = "Server error (500): The analysis server encountered an internal error.";
-            // Show error dialog
-            alert(`${errorMessage}\n\nPlease check the server logs for more information.`);
-          } else if (error.response.status === 400) {
-            // Bad request - could be a file format issue
-            errorMessage = "Error (400): " + (error.response.data?.detail || "Invalid request format");
-            alert(errorMessage);
-          } else {
-            errorMessage = `Error (${error.response.status}): ${error.response.data?.detail || error.message}`;
-            alert(errorMessage);
-          }
-        } else if (error.request) {
-          // The request was made but no response was received
-          errorMessage = "Network error: No response received from server. Please check your connection.";
-          alert(errorMessage);
-        } else {
-          // Something happened in setting up the request
-          errorMessage = "Request error: " + error.message;
-          alert(errorMessage);
-        }
+      if (!jobDescriptionId) {
+        console.error('Failed to store job description for batch analysis');
       } else {
-        errorMessage = "Unexpected error: " + (error instanceof Error ? error.message : String(error));
-        alert(errorMessage);
+        console.log('Job description stored with ID:', jobDescriptionId);
       }
-      
-      // Return error results for each file
-      return files.map(file => ({
+    } catch (error) {
+      console.error('Error storing job description:', error);
+    }
+    
+    // Process each file individually to handle potential errors better
+    const results: AnalysisResult[] = [];
+    
+    for (const file of files) {
+      try {
+        console.log(`Processing file: ${file.name}`);
+        
+        // Cast as FileWithId to handle ID if present
+        const fileWithId = file as FileWithId;
+        const fileId = fileWithId.id || '';
+        
+        // Analyze single resume
+        const result = await this.analyzeResume(
+          file,
+          jobDescription,
+          folderId,
+          userId,
+          fileId,
+          weights,
+          useDistilBERT
+        );
+        
+        // Generate HR data if missing from API response
+        if ((!result.hrAnalysis || Object.keys(result.hrAnalysis || {}).length === 0) ||
+            (!result.hrAssessment || Object.keys(result.hrAssessment || {}).length === 0) ||
+            (!result.hrRecommendations || (result.hrRecommendations || []).length === 0)) {
+          
+          // Generate HR data based on the analysis result
+          const hrData = this.generateHrData(
+            result.score,
+            result.matchedKeywords,
+            result.missingKeywords,
+            result.aspectScores || {}
+          );
+          
+          // Apply generated HR data
+          result.hrAnalysis = hrData.hrAnalysis;
+          result.hrAssessment = hrData.hrAssessment;
+          result.hrRecommendations = hrData.hrRecommendations;
+        }
+        
+        // Generate candidate info if missing from API response
+        if (!result.candidateInfo || Object.keys(result.candidateInfo || {}).length === 0) {
+          // Generate candidate info based on the analysis result
+          const candidateInfo = this.generateCandidateInfo(
+            result.filename,
+            result.matchedKeywords
+          );
+          
+          // Apply generated candidate info
+          result.candidateInfo = candidateInfo;
+        } else {
+          console.log('Using candidate info from API for batch file:', result.filename);
+          
+          // Ensure we only have name and email in the candidate info object
+          if (result.candidateInfo) {
+            const { name, email } = result.candidateInfo;
+            
+            // Keep only name and email, but only if they are defined
+            // This ensures we don't overwrite data with undefined values
+            const candidateInfo: AnalysisResult['candidateInfo'] = {};
+            
+            if (name !== undefined) {
+              candidateInfo.name = name;
+            }
+            
+            if (email !== undefined) {
+              candidateInfo.email = email;
+            }
+            
+            // Only update if we have at least one valid field
+            if (Object.keys(candidateInfo).length > 0) {
+              result.candidateInfo = candidateInfo;
+            }
+          }
+        }
+        
+        // Store each result if we have folder and user IDs
+        if (fileWithId.id && folderId && userId) {
+          try {
+            // Store job description once for all files
+            if (!jobDescriptionId) {
+              jobDescriptionId = await this.storeJobDescription(
+                jobDescription,
+                folderId,
+                userId
+              );
+            }
+            
+            if (jobDescriptionId) {
+              // Prepare HR data for storage
+              const hrData = {
+                hrAnalysis: result.hrAnalysis,
+                hrAssessment: result.hrAssessment,
+                hrRecommendations: result.hrRecommendations
+              };
+              
+              // Extract aspect scores for storage
+              const aspectScoresToStore: Record<string, number> = {};
+              if (result.aspectScores) {
+                Object.entries(result.aspectScores).forEach(([key, value]) => {
+                  if (value !== undefined) {
+                    aspectScoresToStore[key] = value;
+                  }
+                });
+              }
+              
+              // Store the analysis result
+              await this.storeAnalysisResult(
+                fileWithId.id,
+                jobDescriptionId,
+                result.score,
+                result.matchedKeywords,
+                result.missingKeywords,
+                result.aspectScores?.achievements || 0,
+                aspectScoresToStore,
+                userId,
+                hrData,
+                result.candidateInfo
+              );
+            }
+          } catch (storageError) {
+            console.error('Error storing analysis result:', storageError);
+          }
+        }
+        
+        results.push(result);
+    } catch (error) {
+        console.error(`Error analyzing file ${file.name}:`, error);
+        
+        // Add error result
+        results.push({
         filename: file.name,
         score: 0,
         matchedKeywords: [],
         missingKeywords: [],
-        recommendations: [errorMessage],
+          recommendations: [`Error analyzing file: ${file.name}`],
         error: {
           code: 'ANALYSIS_FAILED',
-          message: errorMessage
+            message: error instanceof Error ? error.message : 'Unknown error during analysis',
+            details: error
+          }
+        });
         }
-      }));
     }
+    
+    console.log(`Completed batch analysis of ${results.length} files`);
+    return results;
   }
 
   // Store job description using ATSService
@@ -412,22 +964,59 @@ To start the server:
     weaknesses: string[],
     achievementBonus: number,
     aspectScores: Record<string, number>,
-    userId: string
+    userId: string,
+    hrData?: {
+      hrAnalysis?: AnalysisResult['hrAnalysis'],
+      hrAssessment?: AnalysisResult['hrAssessment'],
+      hrRecommendations?: string[]
+    },
+    candidateInfo?: AnalysisResult['candidateInfo']
   ): Promise<string | null> {
     try {
-      console.log(`Storing analysis result: fileId=${fileId}, jobDescriptionId=${jobDescriptionId}, matchScore=${matchScore}, userId=${userId}`);
-      return await this.atsService.storeAnalysisResult(
-        fileId,
-        jobDescriptionId,
-        matchScore,
-        strengths,
-        weaknesses,
-        achievementBonus,
-        aspectScores,
-        userId
-      );
+      console.log('Storing analysis result in Supabase...');
+      
+      // Ensure strengths and weaknesses are arrays
+      if (!Array.isArray(strengths)) strengths = [];
+      if (!Array.isArray(weaknesses)) weaknesses = [];
+      
+      // Create an insert object
+      const insertObject: any = {
+        file_id: fileId,
+        job_description_id: jobDescriptionId,
+        match_score: matchScore,
+        strengths: strengths,
+        weaknesses: weaknesses,
+        achievement_bonus: achievementBonus,
+        aspect_scores: aspectScores,
+        userId: userId
+      };
+      
+      // Add HR data if provided
+      if (hrData) {
+        insertObject.hr_data = hrData;
+      }
+      
+      // Add candidate info if provided
+      if (candidateInfo) {
+        insertObject.candidate_info = candidateInfo;
+        console.log('Storing candidate info in database:', candidateInfo);
+      }
+      
+      const { data, error } = await supabase
+        .from('analysis_results')
+        .insert(insertObject)
+        .select('id')
+        .single();
+      
+      if (error) {
+        console.error('Error storing analysis result:', error);
+        return null;
+      }
+      
+      console.log('Analysis result stored with ID:', data.id);
+      return data.id;
     } catch (error) {
-      console.error('Exception in storeAnalysisResult:', error);
+      console.error('Exception storing analysis result:', error);
       return null;
     }
   }

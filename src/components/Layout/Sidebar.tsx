@@ -9,9 +9,7 @@ import {
   Mail, 
   BarChart2, 
   HelpCircle,
-  FileCheck,
-  Zap
-} from 'lucide-react';
+  FileCheck} from 'lucide-react';
 import { useWindowSize } from '../../hooks/useWindowSize';
 import { useTeam } from '../../contexts/TeamContext';
 import icon from '../../assets/images/icon.png';
@@ -47,7 +45,7 @@ const NavItem: React.FC<NavItemProps> = ({
     <Link
       to={to}
       className={`
-        flex items-center py-2.5 px-3 my-1
+        flex items-center py-2 px-2 my-1
         rounded-md cursor-pointer
         transition-colors duration-200 ease-in-out
         group
@@ -57,11 +55,11 @@ const NavItem: React.FC<NavItemProps> = ({
         }
       `}
     >
-      <div className="flex items-center justify-center w-5 h-5 flex-shrink-0">
+      <div className="flex items-center justify-center w-6 h-6 flex-shrink-0">
         {icon}
       </div>
       <div className={`
-        ml-3.5 whitespace-nowrap text-xs font-medium overflow-hidden transition-all duration-300
+        ml-3 whitespace-nowrap text-xs font-medium overflow-hidden transition-all duration-300
         ${expanded ? 'w-auto opacity-100' : 'w-0 opacity-0'}
       `}>
         {text}

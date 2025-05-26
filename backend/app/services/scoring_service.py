@@ -242,6 +242,8 @@ class ScoringService:
         
         # Extract candidate name for personalized analysis
         candidate_name = resume_data.get("name", "The candidate")
+        candidate_email = resume_data.get("email", "")
+        
         if candidate_name and " " in candidate_name:
             # Use just the first name for a more personalized touch
             first_name = candidate_name.split()[0]
@@ -259,6 +261,16 @@ class ScoringService:
             assessment = f"HR Assessment: {first_name}'s resume shows a moderate match. While there are some relevant qualifications, several key requirements appear to be missing."
         else:
             assessment = f"HR Assessment: {first_name}'s resume shows limited alignment with this position. The candidate lacks several key qualifications required for success in this role."
+        
+        # Add candidate contact information
+        contact_info = ""
+        if candidate_name:
+            contact_info += f"Name: {candidate_name}. "
+        if candidate_email:
+            contact_info += f"Email: {candidate_email}. "
+        
+        if contact_info:
+            contact_info = "Candidate information: " + contact_info
         
         # Highlight key strengths from HR perspective
         strength_count = len(matched_keywords)
@@ -294,6 +306,10 @@ class ScoringService:
         # Combine all components
         explanation = f"{assessment}{achievement_note}{education_note} {strengths} {interview_focus}"
         
+        # Add contact information at the beginning for easy reference
+        if contact_info:
+            explanation = f"{contact_info}\n\n{explanation}"
+        
         return explanation
     
     def generate_hr_recommendations(self, resume_data: Dict[str, Any], 
@@ -304,6 +320,7 @@ class ScoringService:
         
         # Extract candidate name for personalized recommendations
         candidate_name = resume_data.get("name", "The candidate")
+        
         if candidate_name and " " in candidate_name:
             first_name = candidate_name.split()[0]
         else:

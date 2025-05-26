@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CheckCircle, AlertTriangle, FileText, Zap, ArrowLeft, Maximize, Minimize, RefreshCw, Download } from 'lucide-react';
+import { CheckCircle, AlertTriangle, FileText, Zap, ArrowLeft, Maximize, Minimize, RefreshCw, Download, UserPlus } from 'lucide-react';
 import { AnalysisResult } from '../services/resume-analysis.service';
 import { DocumentsService } from '../services/documents.service';
 import { supabase } from '../lib/supabase';
@@ -8,6 +8,7 @@ import SimplePDFViewer from '../components/SimplePDFViewer';
 import resumeAnalysisService from '../services/resume-analysis.service';
 import LottieAnimation from '../components/UI/LottieAnimation';
 import { LOADER_ANIMATION } from '../utils/animationPreloader';
+import HRAssessment from '../components/Analysis/HRAssessment';
 
 // Log current component version
 console.log('ResumeDetails component loaded with SimplePDFViewer');
@@ -21,6 +22,8 @@ const ResumeDetails: React.FC = () => {
   const [] = useState(1.2);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isHrDataLoading, setIsHrDataLoading] = useState(false);
+  const [hrDataError, setHrDataError] = useState<string | null>(null);
 
   // Add a retry mechanism for PDF loading
   const [loadAttempts, setLoadAttempts] = useState(0);
@@ -42,7 +45,7 @@ const ResumeDetails: React.FC = () => {
 
   useEffect(() => {
     // Explicitly disable mock data in localStorage
-    localStorage.setItem('use_mock_data', 'false');
+    localStorage.removeItem('USE_MOCK_DATA');
     
     // Load result from database only, not localStorage
     const loadResult = async () => {
@@ -231,7 +234,7 @@ const ResumeDetails: React.FC = () => {
         }
         
         // Parse candidate info if stored as string
-        let candidateInfo = {};
+        let candidateInfo: Record<string, any> = {};
         try {
           if (analysisData[0].candidate_info) {
             if (typeof analysisData[0].candidate_info === 'string') {
@@ -239,9 +242,61 @@ const ResumeDetails: React.FC = () => {
             } else {
               candidateInfo = analysisData[0].candidate_info;
             }
+            
+            // Log the candidate info we found in the database for debugging
+            console.log('Found candidate info in database:', candidateInfo);
+            
+            // Ensure we have valid candidate info format
+            if (typeof candidateInfo !== 'object' || candidateInfo === null) {
+              console.log('Invalid candidateInfo format, resetting to empty object');
+              candidateInfo = {};
+            }
+            
+            // Validate that it has at least name and email properties
+            if (!candidateInfo.name && !candidateInfo.email) {
+              // Check if properties might be nested (this happens with some DB serialization)
+              const keys = Object.keys(candidateInfo);
+              if (keys.length > 0 && typeof candidateInfo[keys[0]] === 'object') {
+                // Try to extract nested data
+                const nestedData = candidateInfo[keys[0]] as Record<string, any>;
+                console.log('Found nested candidate data:', nestedData);
+                candidateInfo = nestedData;
+              }
+            }
           }
         } catch (e) {
           console.error('Error parsing candidate info:', e);
+          candidateInfo = {};
+        }
+        
+        // Parse HR data if stored as string or object
+        let hrAnalysis = {};
+        let hrAssessment = {};
+        let hrRecommendations: string[] = [];
+        
+        try {
+          if (analysisData[0].hr_data) {
+            let hrData;
+            if (typeof analysisData[0].hr_data === 'string') {
+              hrData = JSON.parse(analysisData[0].hr_data);
+            } else {
+              hrData = analysisData[0].hr_data;
+            }
+            
+            if (hrData) {
+              hrAnalysis = hrData.hrAnalysis || {};
+              hrAssessment = hrData.hrAssessment || {};
+              hrRecommendations = hrData.hrRecommendations || [];
+              
+              console.log('Found HR data in database:', {
+                hasAnalysis: Object.keys(hrAnalysis).length > 0,
+                hasAssessment: Object.keys(hrAssessment).length > 0,
+                recommendationsCount: hrRecommendations.length
+              });
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing HR data:', e);
         }
         
         // Transform database result to match our AnalysisResult interface
@@ -256,8 +311,108 @@ const ResumeDetails: React.FC = () => {
           recommendations: [], // We don't store recommendations in the database yet
           analyzed_at: analysisData[0].created_at,
           aspectScores: aspectScores,
-          candidateInfo: candidateInfo
+          candidateInfo: candidateInfo,
+          hrAnalysis: hrAnalysis,
+          hrAssessment: hrAssessment,
+          hrRecommendations: hrRecommendations
         };
+        
+        // Generate HR data if not available (silently, without requiring user action)
+        if ((!selectedResult.hrAnalysis || Object.keys(selectedResult.hrAnalysis).length === 0) ||
+            (!selectedResult.hrAssessment || Object.keys(selectedResult.hrAssessment).length === 0) ||
+            (!selectedResult.hrRecommendations || selectedResult.hrRecommendations.length === 0)) {
+          
+          console.log('No HR data found, generating it automatically');
+          setIsHrDataLoading(true);
+          
+          try {
+            // Use the service to generate HR data
+            const analysisService = resumeAnalysisService as any;
+            if (typeof analysisService.generateHrData === 'function') {
+              const hrData = analysisService.generateHrData(
+                selectedResult.score,
+                selectedResult.matchedKeywords,
+                selectedResult.missingKeywords,
+                selectedResult.aspectScores || {}
+              );
+              
+              // Update the result with HR data
+              selectedResult.hrAnalysis = hrData.hrAnalysis;
+              selectedResult.hrAssessment = hrData.hrAssessment;
+              selectedResult.hrRecommendations = hrData.hrRecommendations;
+              
+              // Store the HR data in the database
+              try {
+                await supabase
+                  .from('analysis_results')
+                  .update({
+                    hr_data: hrData
+                  })
+                  .eq('id', selectedResult.id);
+                  
+                console.log('Automatically generated and stored HR data');
+              } catch (storeError) {
+                console.error('Error storing generated HR data:', storeError);
+              }
+            }
+          } catch (hrError) {
+            console.error('Error automatically generating HR data:', hrError);
+          } finally {
+            setIsHrDataLoading(false);
+          }
+        }
+        
+        // Generate candidate info if not available
+        if (!selectedResult.candidateInfo || Object.keys(selectedResult.candidateInfo).length === 0) {
+          console.log('No candidate info found, generating it automatically');
+          
+          try {
+            // Use the service to generate candidate info
+            const analysisService = resumeAnalysisService as any;
+            if (typeof analysisService.generateCandidateInfo === 'function') {
+              const generatedCandidateInfo = analysisService.generateCandidateInfo(
+                selectedResult.filename,
+                selectedResult.matchedKeywords
+              );
+              
+              // Validate the generated info
+              if (!generatedCandidateInfo.name || !generatedCandidateInfo.email) {
+                console.log('Generated candidate info missing name/email, adding defaults');
+                generatedCandidateInfo.name = generatedCandidateInfo.name || 'Candidate Name';
+                generatedCandidateInfo.email = generatedCandidateInfo.email || 'candidate@example.com';
+              }
+              
+              // Update the result with candidate info
+              selectedResult.candidateInfo = generatedCandidateInfo;
+              
+              // Store the candidate info in the database
+              try {
+                await supabase
+                  .from('analysis_results')
+                  .update({
+                    candidate_info: generatedCandidateInfo
+                  })
+                  .eq('id', selectedResult.id);
+                  
+                console.log('Automatically generated and stored candidate info:', generatedCandidateInfo);
+              } catch (storeError) {
+                console.error('Error storing generated candidate info:', storeError);
+              }
+            }
+          } catch (error) {
+            console.error('Error automatically generating candidate info:', error);
+          }
+        } else {
+          // Log existing candidate info
+          console.log('Using existing candidate info:', selectedResult.candidateInfo);
+          
+          // Ensure it has required properties
+          if (!selectedResult.candidateInfo.name || !selectedResult.candidateInfo.email) {
+            console.log('Existing candidate info missing name/email, adding defaults');
+            selectedResult.candidateInfo.name = selectedResult.candidateInfo.name || 'Candidate Name';
+            selectedResult.candidateInfo.email = selectedResult.candidateInfo.email || 'candidate@example.com';
+          }
+        }
         
         console.log('Setting result:', selectedResult);
         setResult(selectedResult);
@@ -416,6 +571,80 @@ const ResumeDetails: React.FC = () => {
     }
   };
 
+  // Function to check if HR data exists
+  const hasHrData = () => {
+    if (!result) return false;
+    
+    return (
+      result.hrAnalysis && 
+      Object.keys(result.hrAnalysis || {}).length > 0 && 
+      result.hrAssessment && 
+      Object.keys(result.hrAssessment || {}).length > 0 && 
+      result.hrRecommendations && 
+      result.hrRecommendations.length > 0
+    );
+  };
+
+  // Function to generate HR data
+  const generateHrData = async () => {
+    if (!result || !result.id) return;
+
+    setIsHrDataLoading(true);
+    setHrDataError(null);
+    
+    try {
+      // Use the resumeAnalysisService to generate HR data
+      const analysisService = resumeAnalysisService as any;
+      if (typeof analysisService.generateHrData !== 'function') {
+        throw new Error('generateHrData method not available');
+      }
+      
+      // Generate HR data based on existing analysis
+      const hrData = analysisService.generateHrData(
+        result.score,
+        result.matchedKeywords,
+        result.missingKeywords,
+        result.aspectScores || {}
+      );
+      
+      // Update the result with HR data
+      const updatedResult = {
+        ...result,
+        hrAnalysis: hrData.hrAnalysis,
+        hrAssessment: hrData.hrAssessment,
+        hrRecommendations: hrData.hrRecommendations
+      };
+      
+      // Update the state immediately for UI
+      setResult(updatedResult);
+      
+      // Store HR data in database
+      const { error } = await supabase
+        .from('analysis_results')
+        .update({
+          hr_data: hrData
+        })
+        .eq('id', result.id);
+      
+      if (error) throw error;
+      
+      console.log('Successfully generated and stored HR data');
+    } catch (error) {
+      console.error('Error generating HR data:', error);
+      setHrDataError('Failed to generate HR assessment data');
+    } finally {
+      setIsHrDataLoading(false);
+    }
+  };
+
+  // Add effect to log candidate info when result changes
+  useEffect(() => {
+    if (result?.candidateInfo) {
+      // Log outside of JSX render
+      console.log('Current candidate info:', result.candidateInfo);
+    }
+  }, [result]);
+
   if (!result) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen">
@@ -495,23 +724,20 @@ const ResumeDetails: React.FC = () => {
                 </div>
               </div>
               
-              <div>
-                <h4 className="text-xs font-medium text-gray-700 mb-2">Recommendations</h4>
-                <div className="bg-orange-50 rounded p-3 space-y-2">
-                  {result.recommendations && result.recommendations.length > 0 ? (
-                    result.recommendations.map((recommendation, index) => (
+              {/* Only show recommendations section when there are recommendations */}
+              {result.recommendations && result.recommendations.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-medium text-gray-700 mb-2">Recommendations</h4>
+                  <div className="bg-orange-50 rounded p-3 space-y-2">
+                    {result.recommendations.map((recommendation, index) => (
                       <div key={index} className="flex items-start">
                         <Zap size={14} className="text-orange-500 mt-0.5 mr-2 flex-shrink-0" />
                         <p className="text-xs text-orange-800">{recommendation}</p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="flex items-start">
-                      <p className="text-xs text-orange-800">No specific recommendations available.</p>
-                    </div>
-                  )}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {result.aspectScores && (
@@ -595,84 +821,63 @@ const ResumeDetails: React.FC = () => {
             )}
 
             {/* Candidate Information Section */}
-            {result.candidateInfo && Object.keys(result.candidateInfo).length > 0 && (
+            {result.candidateInfo && (
               <div>
                 <h4 className="text-xs font-medium text-gray-700 mb-1">Candidate Information</h4>
                 <div className="bg-gray-50 p-2 rounded-md">
-                  {/* Basic Info */}
-                  {(result.candidateInfo.name || result.candidateInfo.email) && (
-                    <div className="mb-2">
-                      {result.candidateInfo.name && (
-                        <div className="flex items-center text-xs mb-1">
-                          <span className="text-gray-600 font-medium w-20">Name:</span>
-                          <span className="text-gray-800">{result.candidateInfo.name}</span>
-                        </div>
-                      )}
-                      {result.candidateInfo.email && (
-                        <div className="flex items-center text-xs mb-1">
-                          <span className="text-gray-600 font-medium w-20">Email:</span>
-                          <span className="text-gray-800">{result.candidateInfo.email}</span>
-                        </div>
-                      )}
-                      {result.candidateInfo.phone && (
-                        <div className="flex items-center text-xs mb-1">
-                          <span className="text-gray-600 font-medium w-20">Phone:</span>
-                          <span className="text-gray-800">{result.candidateInfo.phone}</span>
-                        </div>
-                      )}
-                      {result.candidateInfo.location && (
-                        <div className="flex items-center text-xs mb-1">
-                          <span className="text-gray-600 font-medium w-20">Location:</span>
-                          <span className="text-gray-800">{result.candidateInfo.location}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* Skills */}
-                  {result.candidateInfo.skills && result.candidateInfo.skills.length > 0 && (
-                    <div className="mb-2">
-                      <div className="text-xs text-gray-600 font-medium mb-1">Skills:</div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {result.candidateInfo.skills.map((skill, idx) => (
-                          <span key={idx} className="text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">
-                            {skill}
-                          </span>
-                        ))}
+                  {/* Only display name and email */}
+                  <div className="mb-2">
+                    {/* Safely access candidate info properties */}
+                    {result.candidateInfo.name ? (
+                      <div className="flex items-center text-xs mb-1">
+                        <span className="text-gray-600 font-medium w-20">Name:</span>
+                        <span className="text-gray-800">{result.candidateInfo.name}</span>
                       </div>
-                    </div>
-                  )}
-                  
-                  {/* Experience Summary */}
-                  {result.candidateInfo.experience && result.candidateInfo.experience.length > 0 && (
-                    <div className="mb-2">
-                      <div className="text-xs text-gray-600 font-medium mb-1">Experience:</div>
-                      {result.candidateInfo.experience.map((exp, idx) => (
-                        <div key={idx} className="text-xs mb-1 pl-1 border-l-2 border-gray-200">
-                          {exp.title && <div className="font-medium">{exp.title}</div>}
-                          {exp.company && <div className="text-gray-700">{exp.company}</div>}
-                          {exp.period && <div className="text-gray-500 text-xs">{exp.period}</div>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* Education Summary */}
-                  {result.candidateInfo.education && result.candidateInfo.education.length > 0 && (
-                    <div>
-                      <div className="text-xs text-gray-600 font-medium mb-1">Education:</div>
-                      {result.candidateInfo.education.map((edu, idx) => (
-                        <div key={idx} className="text-xs mb-1 pl-1 border-l-2 border-gray-200">
-                          {edu.degree && <div className="font-medium">{edu.degree}</div>}
-                          {edu.institution && <div className="text-gray-700">{edu.institution}</div>}
-                          {edu.year && <div className="text-gray-500 text-xs">{edu.year}</div>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                    ) : null}
+                    
+                    {result.candidateInfo.email ? (
+                      <div className="flex items-center text-xs mb-1">
+                        <span className="text-gray-600 font-medium w-20">Email:</span>
+                        <span className="text-gray-800">{result.candidateInfo.email}</span>
+                      </div>
+                    ) : null}
+                    
+                    {!result.candidateInfo.name && !result.candidateInfo.email && (
+                      <div className="text-xs text-gray-500">No candidate information available</div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
+
+            {/* HR Assessment Section */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <h4 className="text-xs font-medium text-gray-700">HR Assessment</h4>
+                {!hasHrData() && !isHrDataLoading && (
+                  <button 
+                    onClick={generateHrData}
+                    className="flex items-center text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50"
+                  >
+                    <UserPlus size={12} className="mr-1" />
+                    Generate
+                  </button>
+                )}
+              </div>
+              
+              {hrDataError && (
+                <div className="bg-red-50 p-2 mb-2 rounded-md">
+                  <p className="text-xs text-red-600">{hrDataError}</p>
+                </div>
+              )}
+              
+              <HRAssessment 
+                hrAnalysis={result?.hrAnalysis}
+                hrAssessment={result?.hrAssessment}
+                hrRecommendations={result?.hrRecommendations}
+                isLoading={isHrDataLoading}
+              />
+            </div>
           </div>
         </div>
 

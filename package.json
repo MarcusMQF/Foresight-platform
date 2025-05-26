@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "update-supabase-policies": "node scripts/update-supabase-policies.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -19,13 +20,14 @@
     "@radix-ui/react-label": "^2.1.6",
     "@radix-ui/react-slot": "^1.2.2",
     "@react-pdf/renderer": "^4.3.0",
-    "@supabase/supabase-js": "^2.49.7",
+    "@supabase/supabase-js": "^2.49.8",
     "@types/file-saver": "^2.0.7",
     "axios": "^1.9.0",
     "chart.js": "^4.4.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "file-saver": "^2.0.5",
+    "form-data": "^4.0.2",
     "jszip": "^3.10.1",
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.344.0",

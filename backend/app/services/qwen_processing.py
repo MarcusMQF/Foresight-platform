@@ -60,6 +60,7 @@ class QwenProcessingService:
         # Use regex patterns for fast extraction of basic information
         name = self.extract_name(resume_text)
         email = self._extract_email_regex(resume_text)
+        location = self._extract_location_regex(resume_text)
         
         # Extract resume sections using pattern matching
         sections = self._extract_sections_regex(resume_text)
@@ -233,12 +234,13 @@ class QwenProcessingService:
         candidate_info = {
             "name": name,
             "email": email,
+            "location": location,
             "sections": sections,
             "keywords": keywords,
             "education": education
         }
         
-        logger.info(f"Extracted candidate info: name={name}, email={email}, sections={list(sections.keys())}, keywords={len(keywords)}")
+        logger.info(f"Extracted candidate info: name={name}, email={email}, location={location}, sections={list(sections.keys())}, keywords={len(keywords)}")
         
         return candidate_info
     
@@ -391,6 +393,104 @@ class QwenProcessingService:
         if match:
             return match.group(0).replace("Ä", "@")
         
+        return ""
+    
+    def _extract_location_regex(self, text: str) -> str:
+        """Extract location information using regex pattern matching"""
+        # Look for location in the first few lines (typically in the header)
+        header_text = '\n'.join(text.split('\n')[:10])
+        
+        # Pattern for common location formats
+        # Look for city, state, country patterns
+        location_patterns = [
+            # City, State/Province format
+            r'(?:^|\s)([A-Z][a-zA-Z\s]{2,25}),\s*([A-Z][a-zA-Z\s]{2,25})(?:$|\s)',
+            
+            # City, Country format
+            r'(?:^|\s)([A-Z][a-zA-Z\s]{2,25}),\s*([A-Z][a-zA-Z\s]{2,25})(?:$|\s)',
+            
+            # Common Malaysian cities/states
+            r'\b(?:Kuala\s+Lumpur|Selangor|Penang|Johor\s+Bahru|Malacca|Ipoh|Sarawak|Sabah|Perak|Kedah|Negeri\s+Sembilan|Pahang|Terengganu|Kelantan|Perlis|Labuan|Putrajaya|Cyberjaya)\b',
+            
+            # Address with postal code
+            r'(?:[A-Za-z\s]+,\s*)?(\d{5})\s+([A-Z][a-zA-Z\s]+)',
+            
+            # General location pattern
+            r'(?:Address|Location|Based\s+in)(?:\s*:|)\s*([A-Za-z0-9\s,.]+)'
+        ]
+        
+        # Try each pattern
+        for pattern in location_patterns:
+            match = re.search(pattern, header_text)
+            if match:
+                if len(match.groups()) > 1:
+                    # Multiple groups captured, combine them
+                    location = ', '.join(g for g in match.groups() if g)
+                else:
+                    # Single group or full match
+                    location = match.group(0)
+                
+                # Clean up the location
+                location = location.strip()
+                location = re.sub(r'^(?:Address|Location|Based\s+in)(?:\s*:|\s+)', '', location)
+                location = re.sub(r'^\s*,\s*', '', location)
+                
+                # If we found a location, return it
+                if location:
+                    return location
+        
+        # If no location found in header, look for location keywords in the entire text
+        location_keywords = [
+            "Kuala Lumpur", "Selangor", "Penang", "Johor", "Malacca", "Ipoh", 
+            "Sarawak", "Sabah", "Malaysia", "Cyberjaya", "Putrajaya"
+        ]
+        
+        for keyword in location_keywords:
+            if keyword in text:
+                # Try to get context around this location
+                idx = text.find(keyword)
+                start = max(0, text.rfind('\n', 0, idx))
+                end = text.find('\n', idx)
+                if end == -1:
+                    end = min(idx + 100, len(text))
+                
+                context = text[start:end].strip()
+                
+                # Extract location from context
+                location_match = re.search(r'([A-Za-z\s,]+\b' + re.escape(keyword) + r'\b[A-Za-z\s,]*)', context)
+                if location_match:
+                    location = location_match.group(1).strip()
+                    # Clean up the location
+                    location = re.sub(r'^[,\s]+|[,\s]+$', '', location)
+                    return location
+                
+                # If no context match, just return the keyword
+                return keyword
+        
+        # If still no location found, look for postal codes
+        postal_match = re.search(r'\b\d{5}\b', text)
+        if postal_match:
+            # Try to get context around this postal code
+            postal_code = postal_match.group(0)
+            idx = text.find(postal_code)
+            start = max(0, text.rfind('\n', 0, idx))
+            end = text.find('\n', idx)
+            if end == -1:
+                end = min(idx + 100, len(text))
+            
+            context = text[start:end].strip()
+            
+            # Clean up the context
+            context = re.sub(r'[^A-Za-z0-9\s,]', '', context)
+            context = re.sub(r'\s+', ' ', context).strip()
+            
+            if len(context) < 50:  # Only return if context is reasonably short
+                return context
+            
+            # If context is too long, just return the postal code area
+            return f"Area {postal_code}"
+        
+        # Default return if no location found
         return ""
     
     def _extract_sections_regex(self, text: str) -> Dict[str, str]:

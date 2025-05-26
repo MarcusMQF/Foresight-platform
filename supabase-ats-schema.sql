@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS public.analysis_results (
   weaknesses JSONB NOT NULL DEFAULT '[]'::jsonb,
   achievement_bonus NUMERIC(5,2) DEFAULT 0,
   aspect_scores JSONB NOT NULL DEFAULT '{}'::jsonb,
+  hr_data JSONB DEFAULT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   "userId" TEXT NOT NULL
@@ -86,6 +87,7 @@ RETURNS TABLE (
   weaknesses JSONB,
   achievement_bonus NUMERIC(5,2),
   aspect_scores JSONB,
+  hr_data JSONB,
   created_at TIMESTAMP WITH TIME ZONE,
   updated_at TIMESTAMP WITH TIME ZONE,
   "userId" TEXT
@@ -101,6 +103,7 @@ BEGIN
     ar.weaknesses,
     ar.achievement_bonus,
     ar.aspect_scores,
+    ar.hr_data,
     ar.created_at,
     ar.updated_at,
     ar."userId"
@@ -189,6 +192,7 @@ SELECT
   ar.weaknesses,
   ar.achievement_bonus,
   ar.aspect_scores,
+  ar.hr_data,
   ar.created_at as analyzed_at
 FROM 
   public.files f
