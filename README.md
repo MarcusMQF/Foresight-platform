@@ -84,44 +84,27 @@ graph TD
 ```mermaid
 graph TD
     subgraph "Frontend"
-        A1[React UI Components]
-        A2[Vite Build System]
-        A3[TypeScript]
-        A4[Tailwind CSS]
-        A5[Material UI]
-        A6[Chart.js Dashboard]
-        A7[React Router]
-        A8[React PDF Viewer]
+        A1[React + TypeScript]
+        A2[Tailwind + Material UI]
+        A3[PDF Viewer]
+        A4[Charts Dashboard]
     end
     
-    subgraph "Backend API"
-        B1[Node.js Server]
-        B2[Express API Routes]
-        B3[Supabase Integration]
-        B4[Authentication Service]
-        B5[File Upload Handler]
+    subgraph "Backend"
+        B1[Node.js + Express]
+        B2[File Upload Service]
+        B3[Authentication]
     end
     
-    subgraph "Document Processing"
-        C1[PDF.js Extractor]
-        C2[Mammoth DOCX Parser]
-        C3[Text Extraction Service]
-        C4[Document Structure Analysis]
+    subgraph "Processing"
+        C1[PDF Extraction]
+        C2[DOCX Parsing]
+        C3[Text Analysis]
     end
     
-    subgraph "Analysis Engine"
-        D1[Keyword Matching Module]
-        D2[Resume Scoring System]
-        D3[Candidate Ranking Algorithm]
-        D4[Duplicate Detection]
-    end
-    
-    subgraph "Data Storage"
-        E1[Supabase Database]
-        E2[File Storage]
-        E3[User Profiles]
-        E4[Resume Repository]
-        E5[Job Descriptions]
+    subgraph "Database"
+        D1[Supabase]
+        D2[File Storage]
     end
     
     A1 --> B1
@@ -129,18 +112,9 @@ graph TD
     B1 --> C2
     C1 --> C3
     C2 --> C3
-    C3 --> D1
-    C3 --> D2
-    B2 --> D3
-    B5 --> C3
-    D1 --> D3
-    D2 --> D3
-    D4 --> B5
-    B1 --> E1
-    B5 --> E2
-    D3 --> E1
-    E4 --> C3
-    E5 --> D1
+    C3 --> B1
+    B1 --> D1
+    B2 --> D2
 ```
 
 ## Performance Metrics
