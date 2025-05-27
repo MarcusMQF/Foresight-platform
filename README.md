@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="src/assets/images/logo.png" alt="AI-Powered Talent Acquisition System Logo" width="200"/>
-  <h1>FORESIGHT</h1>
+  <img src="src/assets/images/logo2.png" alt="AI-Powered Talent Acquisition System Logo" width="200"/>
+  <h1></h1>
   <p>Revolutionizing recruitment with cutting-edge AI-driven candidate matching, seamless screening automation, and intelligent filtering—transforming complex hiring into a streamlined, efficient flow.</p>
 
   <img src="https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React"/>
