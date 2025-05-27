@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FileText, Search, ArrowLeft, ArrowDown, ArrowUp, ExternalLink, Trash2, Loader2 } from 'lucide-react';
+import { FileText, Search, ArrowLeft, ArrowDown, ArrowUp, ExternalLink, Trash2, Loader2, AlertTriangle, CheckCircle, BarChart2 } from 'lucide-react';
 import { AnalysisResult } from '../services/resume-analysis.service';
 import { supabase } from '../lib/supabase';
 import { ATSService } from '../services';
 import ConfirmationDialog from '../components/Dialogs/ConfirmationDialog';
 import LottieAnimation from '../components/UI/LottieAnimation';
 import { LOADER_ANIMATION } from '../utils/animationPreloader';
+import MatchScoreBadge from '../components/UI/MatchScoreBadge';
 
 const ResumeAnalysisResults: React.FC = () => {
   const navigate = useNavigate();
@@ -365,20 +366,9 @@ const ResumeAnalysisResults: React.FC = () => {
     }
   };
 
-  // Render score badge with appropriate color
+  // Render score badge with color and icon based on score - replaced with MatchScoreBadge component
   const renderScoreBadge = (score: number) => {
-    let bgColor = 'bg-red-50 text-red-700';
-    if (score >= 80) {
-      bgColor = 'bg-green-50 text-green-700';
-    } else if (score >= 60) {
-      bgColor = 'bg-yellow-50 text-yellow-700';
-    }
-    
-    return (
-      <div className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-medium ${bgColor}`}>
-        {score}%
-      </div>
-    );
+    return <MatchScoreBadge score={score} size="md" />;
   };
 
   // Render results table view
@@ -445,144 +435,114 @@ const ResumeAnalysisResults: React.FC = () => {
                 </button>
               </div>
             ) : (
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <button 
-                        className="flex items-center focus:outline-none"
-                        onClick={() => toggleSort('filename')}
-                      >
-                        RESUME
-                        {sortBy === 'filename' && (
-                          sortOrder === 'asc' ? 
-                            <ArrowUp size={14} className="ml-1" /> : 
-                            <ArrowDown size={14} className="ml-1" />
-                        )}
-                      </button>
-                    </th>
-                    <th className="pr-9 pl-7 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <button 
-                        className="flex items-center justify-center mx-auto"
-                        onClick={() => toggleSort('score')}
-                      >
-                        MATCH SCORE
-                        {sortBy === 'score' && (
-                          sortOrder === 'asc' ? 
-                            <ArrowUp size={14} className="ml-1" /> : 
-                            <ArrowDown size={14} className="ml-1" />
-                        )}
-                      </button>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Matched Keywords
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex justify-end pr-[30px]">ACTIONS</div>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {sortedResults.map((result, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="p-1.5 bg-gray-100 rounded mr-3">
-                            <FileText size={16} className="text-gray-500" />
+              <div className="bg-white rounded-md border border-gray-200 overflow-hidden shadow-sm">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <div className="flex items-center cursor-pointer" onClick={() => toggleSort('filename')}>
+                          Resume
+                          {sortBy === 'filename' && (
+                            <span className="ml-1">
+                              {sortOrder === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <div className="flex items-center cursor-pointer" onClick={() => toggleSort('score')}>
+                          Match Score
+                          {sortBy === 'score' && (
+                            <span className="ml-1">
+                              {sortOrder === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Key Matches
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Missing Skills
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {sortedResults.map((result) => (
+                      <tr key={result.id} className="hover:bg-gray-50 transition-colors duration-150">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <FileText size={18} className="text-gray-400 mr-2" />
+                            <div className="ml-1 text-xs text-gray-700 max-w-xs truncate" title={result.filename}>
+                              {result.filename}
+                            </div>
                           </div>
-                          <div>
-                            <div className="text-xs text-gray-900">{result.filename}</div>
-                            {result.candidateInfo?.name && (
-                              <div className="text-xs text-gray-500">{result.candidateInfo.name}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {renderScoreBadge(result.score)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-1 max-w-xs">
+                            {result.matchedKeywords && result.matchedKeywords.length > 0 ? (
+                              result.matchedKeywords.slice(0, 3).map((keyword, idx) => (
+                                <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-50 text-green-800 border border-green-100" title={keyword}>
+                                  {keyword.length > 15 ? `${keyword.substring(0, 15)}...` : keyword}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-xs text-gray-500">No matches found</span>
+                            )}
+                            {result.matchedKeywords && result.matchedKeywords.length > 3 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-50 text-gray-600" title={result.matchedKeywords.slice(3).join(', ')}>
+                                +{result.matchedKeywords.length - 3} more
+                              </span>
                             )}
                           </div>
-                        </div>
-                      </td>
-                      <td className="pr-9 pl-3 py-4 whitespace-nowrap text-center">
-                        {renderScoreBadge(result.score)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="space-y-2">
-                          {/* Matched Keywords */}
-                          <div>
-                            <div className="text-xs text-gray-500 mb-1">Matched Keywords:</div>
-                            <div className="flex flex-wrap gap-1">
-                              {result.matchedKeywords.slice(0, 3).map((keyword, i) => (
-                                <span key={i} className="inline-block px-2 py-1 bg-green-50 text-green-700 text-xs rounded">
-                                  {keyword}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-wrap gap-1 max-w-xs">
+                            {result.missingKeywords && result.missingKeywords.length > 0 ? (
+                              result.missingKeywords.slice(0, 3).map((keyword, idx) => (
+                                <span key={idx} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-50 text-red-800 border border-red-100" title={keyword}>
+                                  {keyword.length > 15 ? `${keyword.substring(0, 15)}...` : keyword}
                                 </span>
-                              ))}
-                              {result.matchedKeywords.length > 3 && (
-                                <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded">
-                                  +{result.matchedKeywords.length - 3} more
-                                </span>
-                              )}
-                            </div>
+                              ))
+                            ) : (
+                              <span className="text-xs text-gray-500">No missing skills</span>
+                            )}
+                            {result.missingKeywords && result.missingKeywords.length > 3 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-50 text-gray-600" title={result.missingKeywords.slice(3).join(', ')}>
+                                +{result.missingKeywords.length - 3} more
+                              </span>
+                            )}
                           </div>
-                          
-                          {/* Skills (if available) */}
-                          {result.candidateInfo?.skills && result.candidateInfo.skills.length > 0 && (
-                            <div>
-                              <div className="text-xs text-gray-500 mb-1">Skills:</div>
-                              <div className="flex flex-wrap gap-1">
-                                {result.candidateInfo.skills.slice(0, 3).map((skill, i) => (
-                                  <span key={i} className="inline-block px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded">
-                                    {skill}
-                                  </span>
-                                ))}
-                                {result.candidateInfo.skills.length > 3 && (
-                                  <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded">
-                                    +{result.candidateInfo.skills.length - 3} more
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Missing Keywords (truncated) */}
-                          {result.missingKeywords && result.missingKeywords.length > 0 && (
-                            <div>
-                              <div className="text-xs text-gray-500 mb-1">Missing Keywords:</div>
-                              <div className="flex flex-wrap gap-1">
-                                {result.missingKeywords.slice(0, 2).map((keyword, i) => (
-                                  <span key={i} className="inline-block px-2 py-1 bg-red-50 text-red-700 text-xs rounded">
-                                    {keyword}
-                                  </span>
-                                ))}
-                                {result.missingKeywords.length > 2 && (
-                                  <span className="inline-block px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded">
-                                    +{result.missingKeywords.length - 2} more
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end space-x-4">
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <button 
+                            onClick={() => viewResumeDetails(result)} 
+                            className="inline-flex items-center px-2.5 py-1.5 border border-gray-200 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none mr-2"
+                            title="View detailed analysis"
+                          >
+                            <ExternalLink size={14} className="mr-1" />
+                            Details
+                          </button>
                           <button 
                             onClick={() => handleDeleteClick(result)}
-                            className={`text-gray-400 hover:text-red-500 inline-flex items-center text-xs font-medium transition-colors ${deleting ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            disabled={deleting}
-                            title="Delete this analysis result"
+                            className="inline-flex items-center px-2.5 py-1.5 border border-gray-200 text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none"
+                            title="Delete analysis result"
                           >
                             <Trash2 size={14} className="mr-1" />
-                            <span>Delete</span>
+                            Delete
                           </button>
-                          <button 
-                            onClick={() => viewResumeDetails(result)}
-                            className="text-orange-600 hover:text-orange-800 inline-flex items-center text-xs font-medium"
-                          >
-                            View Details
-                            <ExternalLink size={14} className="ml-1" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>

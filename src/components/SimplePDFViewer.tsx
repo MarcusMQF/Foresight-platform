@@ -14,6 +14,7 @@ const SimplePDFViewer: React.FC<SimplePDFViewerProps> = ({ pdfUrl, onError }) =>
   const [retryCount, setRetryCount] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const maxRetries = 3;
+  const [iframeVisible, setIframeVisible] = useState(false);
 
   // Check if pdfUrl is already a blob URL (created elsewhere)
   const isBlobUrl = pdfUrl?.startsWith('blob:') ?? false;
@@ -22,6 +23,7 @@ const SimplePDFViewer: React.FC<SimplePDFViewerProps> = ({ pdfUrl, onError }) =>
     // Reset state when pdfUrl changes
     setLoading(true);
     setError(null);
+    setIframeVisible(false);
     
     if (!pdfUrl) {
       setLoading(false);
@@ -56,8 +58,12 @@ const SimplePDFViewer: React.FC<SimplePDFViewerProps> = ({ pdfUrl, onError }) =>
   // Handle iframe load event
   const handleIframeLoad = () => {
     console.log("PDF iframe loaded successfully");
-    setLoading(false);
-    setError(null);
+    // Use a small delay to ensure the PDF is fully rendered before hiding the loader
+    setTimeout(() => {
+      setLoading(false);
+      setError(null);
+      setIframeVisible(true);
+    }, 300);
   };
 
   // Handle retry button click
@@ -67,6 +73,7 @@ const SimplePDFViewer: React.FC<SimplePDFViewerProps> = ({ pdfUrl, onError }) =>
       setRetryCount(prev => prev + 1);
       setLoading(true);
       setError(null);
+      setIframeVisible(false);
       
       // Force iframe refresh by recreating it
       if (iframeRef.current) {
@@ -88,15 +95,16 @@ const SimplePDFViewer: React.FC<SimplePDFViewerProps> = ({ pdfUrl, onError }) =>
   }
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="w-full h-full flex flex-col relative">
       {loading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white bg-opacity-80 z-10">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-white bg-opacity-90 z-10">
           <LottieAnimation 
             animationUrl={LOADER_ANIMATION} 
             width={80} 
             height={80} 
             className="opacity-75" 
           />
+          <p className="text-gray-600 text-sm mt-2">Loading PDF...</p>
         </div>
       )}
       
@@ -117,7 +125,7 @@ const SimplePDFViewer: React.FC<SimplePDFViewerProps> = ({ pdfUrl, onError }) =>
         <iframe 
           ref={iframeRef}
           src={pdfUrl}
-          className="flex-1 w-full border-0"
+          className={`flex-1 w-full border-0 transition-opacity duration-300 ${iframeVisible ? 'opacity-100' : 'opacity-0'}`}
           style={{ backgroundColor: '#f5f5f5' }}
           title="PDF Viewer"
           onLoad={handleIframeLoad}

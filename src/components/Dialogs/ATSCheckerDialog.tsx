@@ -6,6 +6,7 @@ import { FileItem } from '../../services/documents.service';
 import { useNavigate, useParams } from 'react-router-dom';
 import WeightSlider from '../UI/WeightSlider';
 import { supabase } from '../../lib/supabase';
+import MatchScoreBadge from '../UI/MatchScoreBadge';
 
 interface ATSCheckerDialogProps {
   isOpen: boolean;
@@ -498,6 +499,13 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
                 }
               });
               
+              // Extract HR data if available
+              const hrData = result.hrAnalysis || result.hrAssessment || result.hrRecommendations ? {
+                hrAnalysis: result.hrAnalysis,
+                hrAssessment: result.hrAssessment,
+                hrRecommendations: result.hrRecommendations
+              } : undefined;
+              
               await resumeAnalysisService.storeAnalysisResult(
                 result.file_id,
                 jobDescriptionId,
@@ -506,7 +514,9 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
                 result.missingKeywords,
                 achievementBonus,
                 cleanAspectScores,
-                userId
+                userId,
+                hrData,
+                result.candidateInfo
               );
               console.log(`Stored analysis for file ${i+1}/${results.length}`);
             } catch (storeError) {
@@ -697,8 +707,8 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
                 <h3 className="text-xs font-medium text-gray-900">Resume Analysis</h3>
                 <p className="text-xs text-gray-500">{results.filename}</p>
               </div>
-              <div className="px-2 py-0.5 bg-orange-50 rounded-full">
-                <span className="text-orange-700 font-medium text-xs">Score: {results.score}%</span>
+              <div>
+                <MatchScoreBadge score={results.score} size="sm" />
               </div>
             </div>
           </div>

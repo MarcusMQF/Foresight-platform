@@ -33,6 +33,7 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
   const [localFiles, setLocalFiles] = useState<File[]>([]);
   const [preservedError, setPreservedError] = useState<string | null | undefined>(null);
   const [wasEverOpen, setWasEverOpen] = useState(false);
+  const autoCloseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Reference to the FileUpload component to call its methods
   const fileUploadRef = useRef<FileUploadRef>(null);
@@ -64,6 +65,12 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
       if (fileUploadRef.current) {
         fileUploadRef.current.clearFiles();
       }
+      
+      // Clear any existing auto-close timeout
+      if (autoCloseTimeoutRef.current) {
+        clearTimeout(autoCloseTimeoutRef.current);
+        autoCloseTimeoutRef.current = null;
+      }
     }
   }, [isOpen, error, onClearError]);
   
@@ -90,14 +97,21 @@ const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
   };
   
   // Handle upload completion
-  const handleUploadComplete = () => {
-    // Only close the dialog if there are no errors
+  const handleUploadComplete = (allSuccessful: boolean) => {
+    // Call onComplete callback if provided
     if (onComplete) {
       onComplete();
     }
     
-    // Do not automatically close the dialog - let the user close it manually
-    // This ensures they can see errors or duplicates
+    // Check if all files have been successfully uploaded and there are no errors
+    const hasNoErrors = !preservedError && !error;
+    
+    if (hasNoErrors && allSuccessful) {
+      // Set a timeout to auto-close the dialog after 300ms
+      autoCloseTimeoutRef.current = setTimeout(() => {
+        onClose();
+      }, 300);
+    }
   };
   
   // Handle close with confirmation if needed

@@ -374,7 +374,8 @@ const DocumentAnalysisDialog: React.FC<DocumentAnalysisDialogProps> = ({
                   achievementBonus,
                   cleanAspectScores,
                   userId,
-                  hrData
+                  hrData,
+                  result.candidateInfo
                 );
                 
                 console.log(`Stored analysis for file ${i+1}/${results.length}`);

@@ -35,6 +35,7 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import CustomCheckbox from '../components/UI/CustomCheckbox';
 import { ATSService } from '../services/ats.service';
+import AnalyzedFileBadge from '../components/UI/AnalyzedFileBadge';
 
 // Format file size to human-readable format
 const formatFileSize = (bytes: number): string => {
@@ -955,17 +956,10 @@ const Documents: React.FC = () => {
                             <td className="px-4 py-2.5 whitespace-nowrap text-right pr-8">
                               <div className="flex justify-end space-x-3 items-center">
                                 {analyzedFileIds.includes(file.id) && (
-                                  <span 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      navigate('/resume-analysis-results');
-                                    }}
-                                    className="px-2 py-0.5 bg-orange-50 text-orange-700 text-[10px] rounded-full flex items-center border border-orange-200 font-medium hover:bg-orange-100 hover:border-orange-300 cursor-pointer transition-colors"
-                                    title="View analysis results"
-                                  >
-                                    <CheckCircle size={10} className="mr-1 text-orange-500" />
-                                    Analyzed
-                                  </span>
+                                  <AnalyzedFileBadge
+                                    fileId={file.id}
+                                    showScore={true}
+                                  />
                                 )}
                                 <button
                                   onClick={() => handleFileDownload(file)}

@@ -9,6 +9,10 @@ import resumeAnalysisService from '../services/resume-analysis.service';
 import LottieAnimation from '../components/UI/LottieAnimation';
 import { LOADER_ANIMATION } from '../utils/animationPreloader';
 import HRAssessment from '../components/Analysis/HRAssessment';
+import MatchScoreBadge from '../components/UI/MatchScoreBadge';
+import RadarChart from '../components/RadarChart';
+import RadarChartLegend from '../components/RadarChartLegend';
+import { createScoreCategories } from '../utils/scoreUtils';
 
 // Log current component version
 console.log('ResumeDetails component loaded with SimplePDFViewer');
@@ -294,14 +298,7 @@ const ResumeDetails: React.FC = () => {
             // Save candidate info fields directly in the object
             candidateInfo = {
               name: candidateInfo.name || '',
-              email: candidateInfo.email || '',
-              location: candidateInfo.location || '',
-              education: candidateInfo.education || '',
-              // Include any other fields we want to preserve
-              ...(candidateInfo.skills ? { skills: candidateInfo.skills } : {}),
-              ...(candidateInfo.experience ? { experience: candidateInfo.experience } : {}),
-              ...(candidateInfo.sections ? { sections: candidateInfo.sections } : {}),
-              ...(candidateInfo.keywords ? { keywords: candidateInfo.keywords } : {})
+              email: candidateInfo.email || ''
             };
             
             console.log('Final candidate info object:', candidateInfo);
@@ -472,7 +469,11 @@ const ResumeDetails: React.FC = () => {
           console.log('Got blob URL for PDF:', blobUrl);
           
           setPdfUrl(blobUrl);
-          setIsLoading(false);
+          // Add a small delay before hiding the loading indicator
+          // This gives the PDF time to start rendering in the background
+          setTimeout(() => {
+            setIsLoading(false);
+          }, 500);
           return;
         } catch (error) {
           console.error('Error getting blob URL from fileUrl with retry:', error);
@@ -504,7 +505,10 @@ const ResumeDetails: React.FC = () => {
           console.log('Created blob URL for PDF:', blobUrl);
           
           setPdfUrl(blobUrl);
-          setIsLoading(false);
+          // Add a small delay before hiding the loading indicator
+          setTimeout(() => {
+            setIsLoading(false);
+          }, 500);
         } catch (urlError) {
           console.error('Error getting blob URL for found file:', urlError);
           setError('Failed to generate a viewable URL for the PDF file.');
@@ -694,8 +698,8 @@ const ResumeDetails: React.FC = () => {
                     <h3 className="text-sm font-medium text-gray-900">Resume Analysis</h3>
                     <p className="text-xs text-gray-500">{result.filename}</p>
                   </div>
-                  <div className="px-3 py-1 bg-orange-50 rounded-full">
-                    <span className="text-orange-700 font-medium text-xs">Score: {result.score}%</span>
+                  <div>
+                    <MatchScoreBadge score={result.score} size="md" />
                   </div>
                 </div>
               </div>
@@ -751,46 +755,63 @@ const ResumeDetails: React.FC = () => {
             {result.aspectScores && (
               <div>
                 <h4 className="text-xs font-medium text-gray-700 mb-1">Score Breakdown</h4>
-                <div className="grid grid-cols-2 gap-2 bg-gray-50 p-2 rounded-md">
-                  {Object.entries(result.aspectScores).map(([aspect, score], index) => {
-                    // Skip if score is 0 or undefined
-                    if (score === 0 || score === undefined) return null;
-                    
-                    // Format aspect name (convert camelCase to Title Case)
-                    const formattedAspect = aspect
-                      .replace(/([A-Z])/g, ' $1')
-                      .replace(/^./, str => str.toUpperCase());
-                    
-                    // Get appropriate color based on score value
-                    let bgColor = 'bg-red-50';
-                    let textColor = 'text-red-700';
-                    
-                    // Get the score value and scale if needed (some APIs return 0-1 scale)
-                    let scoreValue = typeof score === 'number' ? score : 
-                                  typeof score === 'string' ? parseFloat(score) : 0;
-                    
-                    // If score is in 0-1 range, scale to 0-10 for display
-                    if (scoreValue > 0 && scoreValue < 1) {
-                      scoreValue = scoreValue * 10;
+                <div className="bg-transparent pb-1 px-1 rounded-md">
+                  {(() => {
+                    // Check if aspectScores exists before trying to use it
+                    if (!result.aspectScores) {
+                      return <div className="text-xs text-gray-500 text-center py-2">No score data available</div>;
                     }
                     
-                    if (scoreValue > 8) {
-                      bgColor = 'bg-green-50';
-                      textColor = 'text-green-700';
-                    } else if (scoreValue > 5) {
-                      bgColor = 'bg-yellow-50';
-                      textColor = 'text-yellow-700';
-                    }
-                    
+                    const scoreData = createScoreCategories(
+                      // Transform the aspectScores object to ensure all values are in the same scale
+                      Object.fromEntries(
+                        Object.entries(result.aspectScores || {})
+                          .filter(([_, score]) => score !== 0 && score !== undefined)
+                          .map(([aspect, score]) => {
+                            // Format aspect name (convert camelCase to Title Case)
+                            const formattedAspect = aspect
+                              .replace(/([A-Z])/g, ' $1')
+                              .replace(/^./, str => str.toUpperCase());
+                            
+                            // Scale score if needed (some APIs return 0-1 scale)
+                            let scoreValue = typeof score === 'number' ? score : 
+                                        typeof score === 'string' ? parseFloat(score) : 0;
+                            
+                            // If score is in 0-1 range, scale to 0-10 for display
+                            if (scoreValue > 0 && scoreValue < 1) {
+                              scoreValue = scoreValue * 10;
+                            }
+                            
+                            return [formattedAspect, scoreValue];
+                          })
+                      )
+                    );
+
+                    const colorScheme = { 
+                      borderColor: 'rgb(249, 115, 22)', 
+                      backgroundColor: 'rgba(249, 115, 22, 0.2)' 
+                    };
+
                     return (
-                      <div key={index} className="flex items-center justify-between">
-                        <span className="text-xs text-gray-600">{formattedAspect}:</span>
-                        <span className={`text-xs font-medium ${textColor} px-1.5 rounded ${bgColor}`}>
-                          {typeof scoreValue === 'number' ? scoreValue.toFixed(1) : String(scoreValue)}
-                        </span>
+                      <div className="flex flex-col">
+                        <div className="flex justify-center items-center mb-2">
+                          <div className="rounded-lg p-0">
+                            <RadarChart 
+                              data={scoreData}
+                              maxValue={100}
+                              colorScheme={colorScheme}
+                              compact={true}
+                            />
+                          </div>
+                        </div>
+                        <RadarChartLegend 
+                          data={scoreData} 
+                          maxValue={100}
+                          colorScheme={colorScheme}
+                        />
                       </div>
                     );
-                  })}
+                  })()}
                 </div>
               </div>
             )}
@@ -831,7 +852,7 @@ const ResumeDetails: React.FC = () => {
             {/* Candidate Information Section */}
             <div>
               <h4 className="text-xs font-medium text-gray-700 mb-1">Candidate Information</h4>
-              <div className="bg-gray-50 p-2 rounded-md">
+              <div className="bg-gray-50 px-2 pt-2 pb-1 rounded-md">
                 {result.candidateInfo && Object.keys(result.candidateInfo).length > 0 ? (
                   <div className="mb-2">
                     {/* Show name if available */}
@@ -841,32 +862,11 @@ const ResumeDetails: React.FC = () => {
                         <span className="text-gray-800">{result.candidateInfo.name}</span>
                       </div>
                     ) : null}
-                    
                     {/* Show email if available */}
                     {result.candidateInfo.email ? (
-                      <div className="flex items-center text-xs mb-1">
+                      <div className="flex items-center text-xs">
                         <span className="text-gray-600 font-medium w-20">Email:</span>
                         <span className="text-gray-800">{result.candidateInfo.email}</span>
-                      </div>
-                    ) : null}
-
-                    {/* Show location if available */}
-                    {result.candidateInfo.location ? (
-                      <div className="flex items-center text-xs mb-1">
-                        <span className="text-gray-600 font-medium w-20">Location:</span>
-                        <span className="text-gray-800">{result.candidateInfo.location}</span>
-                      </div>
-                    ) : null}
-
-                    {/* Show education if available */}
-                    {result.candidateInfo.education ? (
-                      <div className="flex items-start text-xs mb-1">
-                        <span className="text-gray-600 font-medium w-20">Education:</span>
-                        <span className="text-gray-800 flex-1">{typeof result.candidateInfo.education === 'string' ? 
-                          result.candidateInfo.education : 
-                          (Array.isArray(result.candidateInfo.education) ? 
-                            result.candidateInfo.education.join(', ') : 
-                            'Education information available')}</span>
                       </div>
                     ) : null}
                   </div>
@@ -959,6 +959,7 @@ const ResumeDetails: React.FC = () => {
                   height={80} 
                   className="opacity-75" 
                 />
+                <p className="text-gray-600 text-sm mt-2">Loading document...</p>
               </div>
             ) : error ? (
               <div className="flex items-center justify-center h-full p-6 text-center">
@@ -972,10 +973,12 @@ const ResumeDetails: React.FC = () => {
                 </button>
               </div>
             ) : pdfUrl ? (
-              <SimplePDFViewer
-                pdfUrl={pdfUrl}
-                onError={handlePdfError}
-              />
+              <div className="w-full h-full transition-opacity duration-300">
+                <SimplePDFViewer
+                  pdfUrl={pdfUrl}
+                  onError={handlePdfError}
+                />
+              </div>
             ) : (
               <div className="flex items-center justify-center h-full">
                 <p className="text-gray-500">No PDF available</p>

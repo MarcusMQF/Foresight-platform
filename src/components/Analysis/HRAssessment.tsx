@@ -1,5 +1,6 @@
 import React from 'react';
 import { Award, Briefcase, FileText, Star, ThumbsUp, AlertTriangle, Loader2 } from 'lucide-react';
+import QualificationBadge from './QualificationBadge';
 
 interface HRAssessmentProps {
   hrAnalysis?: {
@@ -24,23 +25,6 @@ const HRAssessment: React.FC<HRAssessmentProps> = ({
   hrRecommendations = [],
   isLoading = false
 }) => {
-  // Helper function to get status color and icon
-  const getStatusInfo = (status?: string) => {
-    switch (status) {
-      case 'qualified':
-        return { color: 'text-green-600', bgColor: 'bg-green-50', icon: <ThumbsUp size={14} className="mr-1.5" /> };
-      case 'partially_qualified':
-        return { color: 'text-yellow-600', bgColor: 'bg-yellow-50', icon: <Star size={14} className="mr-1.5" /> };
-      case 'not_qualified':
-        return { color: 'text-red-600', bgColor: 'bg-red-50', icon: <AlertTriangle size={14} className="mr-1.5" /> };
-      default:
-        return { color: 'text-gray-600', bgColor: 'bg-gray-50', icon: <FileText size={14} className="mr-1.5" /> };
-    }
-  };
-
-  // Get status display information
-  const statusInfo = getStatusInfo(hrAssessment.status);
-
   // Generate star rating (1-5)
   const renderRating = () => {
     const rating = hrAssessment.rating || 0;
@@ -98,17 +82,13 @@ const HRAssessment: React.FC<HRAssessmentProps> = ({
       )}
 
       {/* HR Assessment Section */}
-      {(hrAssessment.rating !== undefined || hrAssessment.status || 
-        hrAssessment.strengths?.length || hrAssessment.weaknesses?.length) && (
+      {(hrAssessment.strengths?.length || hrAssessment.weaknesses?.length) && (
         <div>
           <div className="bg-gray-50 p-3 rounded-md space-y-2">
             {/* Status and Rating */}
             <div className="flex items-center justify-between mb-2">
               {hrAssessment.status && (
-                <div className={`flex items-center text-xs ${statusInfo.color} px-2 py-1 rounded ${statusInfo.bgColor}`}>
-                  {statusInfo.icon}
-                  <span className="capitalize">{hrAssessment.status.replace(/_/g, ' ')}</span>
-                </div>
+                <QualificationBadge status={hrAssessment.status} />
               )}
               {hrAssessment.rating !== undefined && renderRating()}
             </div>

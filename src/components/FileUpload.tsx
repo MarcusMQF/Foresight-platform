@@ -9,7 +9,7 @@ interface FileUploadProps {
   maxSizeInMB?: number;
   maxFilesInFolder?: number;
   onClearError?: () => void;
-  onComplete?: () => void;
+  onComplete?: (allSuccessful: boolean) => void;
   persistState?: boolean;
 }
 
@@ -117,6 +117,24 @@ const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(({
       }
     }
   }, [selectedFiles, persistState]);
+
+  // Monitor files for completion status
+  useEffect(() => {
+    // Check if all files are successfully uploaded
+    if (selectedFiles.length > 0 && !isUploading) {
+      const allFilesProcessed = selectedFiles.every(file => 
+        file.status === 'success' || file.status === 'error'
+      );
+      
+      const allFilesSuccessful = selectedFiles.length > 0 && 
+        selectedFiles.every(file => file.status === 'success');
+      
+      // If all files are processed, call onComplete
+      if (allFilesProcessed && onComplete) {
+        onComplete(allFilesSuccessful);
+      }
+    }
+  }, [selectedFiles, isUploading, onComplete]);
 
   // Handle drag events
   const handleDrag = (e: React.DragEvent) => {
@@ -425,6 +443,10 @@ const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(({
     
     if (pendingFiles.length === 0) {
       // All files are already processed
+      const allSuccess = selectedFiles.every(file => file.status === 'success');
+      if (onComplete) {
+        onComplete(allSuccess);
+      }
       return;
     }
     
@@ -519,13 +541,14 @@ const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(({
       // Reset current upload index
       setCurrentUploadIndex(-1);
       
-      // Check if any files had errors
-      const hasErrors = selectedFiles.some(file => file.status === 'error');
+      // Check if all files have been successfully uploaded now
+      const allFilesSuccessful = selectedFiles.every(file => 
+        file.status === 'success'
+      );
       
       // Call onComplete callback if provided
-      // We'll still call this even if there are errors
       if (onComplete) {
-        onComplete();
+        onComplete(allFilesSuccessful);
       }
     } catch (error) {
       console.error('Error in handleSubmit:', error);
@@ -781,7 +804,20 @@ const FileUpload = forwardRef<FileUploadRef, FileUploadProps>(({
             </button>
             <button
               type="button"
-              onClick={handleSubmit}
+              onClick={() => {
+                // Check if all files are already in success state
+                const pendingFiles = selectedFiles.filter(f => f.status === 'pending');
+                if (pendingFiles.length === 0 && selectedFiles.length > 0) {
+                  const allSuccess = selectedFiles.every(file => file.status === 'success');
+                  if (onComplete) {
+                    onComplete(allSuccess);
+                  }
+                  return;
+                }
+                
+                // Otherwise proceed with normal submission
+                handleSubmit();
+              }}
               disabled={isUploading || selectedFiles.length === 0}
               className="px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded-md hover:bg-primary-600 transition-colors duration-200 flex items-center shadow-sm disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
             >

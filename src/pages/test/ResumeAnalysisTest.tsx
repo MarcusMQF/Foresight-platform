@@ -374,26 +374,10 @@ const ResumeAnalysisTest: React.FC = () => {
                   {result.analysisResult.candidateInfo && (
                     <div className="mt-4 pt-4 border-t">
                       <h4 className="font-semibold mb-2">Candidate Information</h4>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4">
                         <div>
                           <p><strong>Name:</strong> {result.analysisResult.candidateInfo.name || 'N/A'}</p>
                           <p><strong>Email:</strong> {result.analysisResult.candidateInfo.email || 'N/A'}</p>
-                          <p><strong>Phone:</strong> {result.analysisResult.candidateInfo.phone || 'N/A'}</p>
-                          <p><strong>Location:</strong> {result.analysisResult.candidateInfo.location || 'N/A'}</p>
-                        </div>
-                        <div>
-                          {result.analysisResult.candidateInfo.skills && (
-                            <div>
-                              <p><strong>Skills:</strong></p>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {result.analysisResult.candidateInfo.skills.map((skill: string, i: number) => (
-                                  <span key={i} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                                    {skill}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>

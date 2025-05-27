@@ -549,13 +549,7 @@ To start the server:
           // Ensure the properties are properly mapped
           analysisResult.candidateInfo = {
             name: candidateInfo.name,
-            email: candidateInfo.email,
-            // Map other properties if they exist
-            phone: candidateInfo.phone,
-            location: candidateInfo.location,
-            skills: candidateInfo.skills,
-            education: candidateInfo.education,
-            experience: candidateInfo.experience
+            email: candidateInfo.email
           };
           
           console.log('Converted candidate_info to candidateInfo:', analysisResult.candidateInfo);
@@ -924,12 +918,7 @@ To start the server:
                 candidateInfoToStore = { 
                   ...candidateInfoToStore,
                   name: rawInfo.name || candidateInfoToStore.name,
-                  email: rawInfo.email || candidateInfoToStore.email,
-                  location: rawInfo.location || candidateInfoToStore.location,
-                  education: rawInfo.education || candidateInfoToStore.education,
-                  ...(rawInfo.skills ? { skills: rawInfo.skills } : {}),
-                  ...(rawInfo.experience ? { experience: rawInfo.experience } : {}),
-                  ...(rawInfo.sections ? { sections: rawInfo.sections } : {})
+                  email: rawInfo.email || candidateInfoToStore.email
                 };
               }
               

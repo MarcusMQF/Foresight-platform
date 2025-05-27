@@ -13,6 +13,7 @@ import CreateTeam from './pages/CreateTeam';
 import ResumeAnalysisResults from './pages/ResumeAnalysisResults';
 import ResumeDetails from './pages/ResumeDetails';
 import ResumeAnalysisTest from './pages/test/ResumeAnalysisTest';
+import ScoreVisualizationDemo from './pages/ScoreVisualizationDemo';
 import { UserProvider } from './context/UserContext';
 import { TeamProvider } from './contexts/TeamContext';
 import { initDocumentsStorage } from './lib/supabaseInit';
@@ -87,6 +88,7 @@ function App() {
               <Route path="/resume-analysis-results" element={<ResumeAnalysisResults />} />
               <Route path="/resume-details/:resultId" element={<ResumeDetails />} />
               <Route path="/test/resume-analysis" element={<ResumeAnalysisTest />} />
+              <Route path="/score-visualization" element={<ScoreVisualizationDemo />} />
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/profile" element={<Profile />} />
