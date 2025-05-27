@@ -784,25 +784,73 @@ const ATSCheckerDialog: React.FC<ATSCheckerDialogProps> = ({
     const remainingTime = Math.max(0, Math.ceil(estimatedTime * (100 - progress) / 100));
     
     return (
-      <div className="space-y-3 p-3">
-        <div className="flex items-center justify-between mb-1.5">
-          <div className="flex items-center gap-1.5">
-            <Clock size={16} className="text-orange-500" />
-            <h3 className="text-sm font-medium text-gray-900">Processing Resumes</h3>
+      <div className="space-y-4 p-3">
+        <div className="text-center py-6">
+          <div className="mb-5">
+            <div className="relative w-40 h-40 mx-auto">
+              {/* Outer container */}
+              <div className="absolute inset-0 rounded-xl bg-gray-50 shadow-inner overflow-hidden">
+                {/* Wave animation background */}
+                <div className="absolute inset-0 bg-gradient-to-b from-orange-100 to-orange-200 opacity-50"></div>
+                
+                {/* Filling wave animation */}
+                <div 
+                  className="absolute bottom-0 left-0 right-0 bg-orange-500 transition-all duration-1000 ease-out"
+                  style={{ 
+                    height: `${Math.min(progress, 100)}%`,
+                    boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)'
+                  }}
+                >
+                  {/* Top wave effect */}
+                  <div className="absolute -top-3 left-0 right-0 h-4">
+                    <svg viewBox="0 0 800 50" preserveAspectRatio="none" className="w-full h-full">
+                      <path 
+                        d="M 0 0 Q 200 50 400 0 Q 600 50 800 0 L 800 50 L 0 50 Z" 
+                        fill="currentColor" 
+                        className="text-orange-500"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                
+                {/* Percentage text container */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span 
+                    className={`text-3xl font-bold transition-colors duration-300 ${
+                      progress > 50 ? 'text-white' : 'text-orange-600'
+                    }`}
+                  >
+                    {Math.min(progress, 100)}%
+                  </span>
+                  <span 
+                    className={`text-xs mt-1 font-medium transition-colors duration-300 ${
+                      progress > 50 ? 'text-white' : 'text-orange-700'
+                    }`}
+                  >
+                    Complete
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="text-sm text-orange-500 font-medium">{Math.min(progress, 100)}%</div>
+          <h3 className="text-sm font-medium text-gray-900 mb-2">
+            {progress === 100 ? 'Finalizing results' : processingStep}
+          </h3>
+          <p className="text-xs text-gray-500">
+            Please don't close this window.
+          </p>
         </div>
         
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
-            className="bg-orange-500 h-2 rounded-full transition-all duration-300" 
-            style={{ width: `${Math.min(progress, 100)}%` }} 
-          />
-        </div>
-        
-        <div className="flex justify-between items-center text-xs text-gray-500">
-          <div>{progress === 100 ? 'Finalizing results' : processingStep}</div>
-          <div>Est. {progress === 100 ? '0s' : `${remainingTime}s`} remaining</div>
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-xs text-gray-500">
+            <div>Est. {progress === 100 ? '0s' : `${remainingTime}s`} remaining</div>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-orange-500 h-2 rounded-full transition-all duration-300" 
+              style={{ width: `${Math.min(progress, 100)}%` }} 
+            />
+          </div>
         </div>
 
         <p className="text-xs text-gray-600 mt-2">

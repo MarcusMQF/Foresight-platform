@@ -455,32 +455,71 @@ const DocumentAnalysisDialog: React.FC<DocumentAnalysisDialogProps> = ({
     <>
       {analyzing ? (
         // Progress view
-        <div className="space-y-3">
-          <div className="text-center py-4">
-            <div className="mb-3">
-              <div className="relative w-12 h-12 mx-auto">
-                <Loader2 size={48} className="animate-spin mx-auto text-primary-500 opacity-25" />
-                <div className="absolute inset-0 flex items-center justify-center text-primary-600 font-medium text-xs">
-                  {Math.round(progress)}%
+        <div className="space-y-4">
+          <div className="text-center py-6">
+            <div className="mb-5">
+              <div className="relative w-40 h-40 mx-auto">
+                {/* Outer container */}
+                <div className="absolute inset-0 rounded-xl bg-gray-50 shadow-inner overflow-hidden">
+                  {/* Wave animation background */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-primary-100 to-primary-200 opacity-50"></div>
+                  
+                  {/* Filling wave animation */}
+                  <div 
+                    className="absolute bottom-0 left-0 right-0 bg-primary-500 transition-all duration-1000 ease-out"
+                    style={{ 
+                      height: `${progress}%`,
+                      boxShadow: '0 0 10px rgba(0, 0, 0, 0.1)'
+                    }}
+                  >
+                    {/* Top wave effect */}
+                    <div className="absolute -top-3 left-0 right-0 h-4">
+                      <svg viewBox="0 0 800 50" preserveAspectRatio="none" className="w-full h-full">
+                        <path 
+                          d="M 0 0 Q 200 50 400 0 Q 600 50 800 0 L 800 50 L 0 50 Z" 
+                          fill="currentColor" 
+                          className="text-primary-500"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                  
+                  {/* Percentage text container */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span 
+                      className={`text-3xl font-bold transition-colors duration-300 ${
+                        progress > 50 ? 'text-white' : 'text-primary-600'
+                      }`}
+                    >
+                      {Math.round(progress)}%
+                    </span>
+                    <span 
+                      className={`text-xs mt-1 font-medium transition-colors duration-300 ${
+                        progress > 50 ? 'text-white' : 'text-primary-700'
+                      }`}
+                    >
+                      Complete
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-            <h3 className="text-xs font-medium text-gray-900 mb-1">
-              {processingStep || 'Analyzing resumes...'}
+            <h3 className="text-sm font-medium text-gray-900 mb-2">
+              {processingStep || 'Finalizing results'}
             </h3>
             <p className="text-xs text-gray-500">
               Please don't close this window.
             </p>
           </div>
           
-          <div className="space-y-1">
+          <div className="space-y-2">
             <div className="flex justify-between text-xs text-gray-700">
               <span>Progress</span>
               <span>Est: {Math.max(0, Math.ceil(estimatedTime * (100 - progress) / 100))}s</span>
             </div>
-            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+            <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
               <div 
-                className="bg-primary-500 h-1.5 rounded-full transition-all duration-300" 
+                className="bg-primary-500 h-2 rounded-full transition-all duration-300" 
                 style={{ width: `${progress}%` }}
               ></div>
             </div>
@@ -602,13 +641,14 @@ const DocumentAnalysisDialog: React.FC<DocumentAnalysisDialogProps> = ({
       
       {/* Footer */}
       <div className="border-t border-gray-200 mt-3 pt-3 flex justify-between">
-        <button
-          onClick={cancelDialog}
-          className="px-2.5 py-2 text-xs font-medium text-gray-700 hover:text-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-200 rounded"
-          disabled={analyzing && progress > 80}
-        >
-          {analyzing ? 'Cancel' : 'Close'}
-        </button>
+        {!analyzing && (
+          <button
+            onClick={cancelDialog}
+            className="px-2.5 py-2 text-xs font-medium text-gray-700 hover:text-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-200 rounded"
+          >
+            Close
+          </button>
+        )}
         
         {!analyzing && (
           <button

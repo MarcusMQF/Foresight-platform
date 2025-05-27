@@ -923,7 +923,6 @@ const ResumeDetails: React.FC = () => {
                       const downloadLink = document.createElement('a');
                       downloadLink.href = downloadUrl;
                       downloadLink.download = result.filename || 'resume.pdf';
-                      downloadLink.target = "_blank"; // Open in new tab to avoid navigation issues
                       document.body.appendChild(downloadLink);
                       downloadLink.click();
                       document.body.removeChild(downloadLink);
