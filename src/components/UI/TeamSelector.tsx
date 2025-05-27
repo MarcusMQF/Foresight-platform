@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronDown, Users, Plus } from 'lucide-react';
+import { ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTeam } from '../../contexts/TeamContext';
 
 export type Team = {
   id: string;
@@ -25,6 +26,7 @@ const TeamSelector: React.FC<TeamSelectorProps> = ({
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const navigate = useNavigate();
+  const { removeTeam } = useTeam();
 
   // Close dropdown when sidebar collapses
   useEffect(() => {
@@ -51,6 +53,13 @@ const TeamSelector: React.FC<TeamSelectorProps> = ({
   const handleTeamSelect = (team: Team) => {
     onTeamChange(team);
     setDropdownOpen(false);
+  };
+
+  const handleDeleteTeam = (e: React.MouseEvent, teamId: string) => {
+    e.stopPropagation(); // Prevent team selection when clicking delete
+    if (window.confirm('Are you sure you want to delete this team?')) {
+      removeTeam(teamId);
+    }
   };
 
   // Generate a random color for new teams
@@ -106,24 +115,38 @@ const TeamSelector: React.FC<TeamSelectorProps> = ({
         {expanded && dropdownOpen && (
           <div className="absolute left-0 right-0 mt-1 bg-gray-700 shadow-lg rounded-md py-1 z-30 border border-gray-600">
             {teams.map(team => (
-              <button
+              <div
                 key={team.id}
-                onClick={() => handleTeamSelect(team)}
                 className={`
-                  w-full flex items-center px-3 py-2 text-left text-xs
+                  w-full flex items-center justify-between px-3 py-2 text-left text-xs
                   ${currentTeam?.id === team.id ? 'bg-gray-600' : 'hover:bg-gray-600'}
-                  text-gray-200
+                  text-gray-200 group
                 `}
               >
-                <div className={`
-                  w-6 h-6 flex items-center justify-center flex-shrink-0 rounded-md 
-                  ${team.id === '1' ? 'bg-yellow-500 text-black' : team.avatarColor || 'bg-primary-500 text-white'}
-                  text-[10px] font-semibold
-                `}>
-                  {getInitials(team.name)}
-                </div>
-                <span className="ml-2 truncate max-w-[120px]">{team.name}</span>
-              </button>
+                <button
+                  onClick={() => handleTeamSelect(team)}
+                  className="flex items-center flex-grow"
+                >
+                  <div className={`
+                    w-6 h-6 flex items-center justify-center flex-shrink-0 rounded-md 
+                    ${team.id === '1' ? 'bg-yellow-500 text-black' : team.avatarColor || 'bg-primary-500 text-white'}
+                    text-[10px] font-semibold
+                  `}>
+                    {getInitials(team.name)}
+                  </div>
+                  <span className="ml-2 truncate max-w-[120px]">{team.name}</span>
+                </button>
+                
+                {/* Don't show delete icon for Personal Workspace */}
+                {team.id !== '1' && (
+                  <button 
+                    onClick={(e) => handleDeleteTeam(e, team.id)}
+                    className="ml-2 text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
             ))}
             
             <div className="border-t border-gray-600 mt-1 pt-1">
