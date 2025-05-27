@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="C:\Users\User\Documents\Visual Studio Code\hackattack\src\assets\images\icon.png" alt="AI-Powered Talent Acquisition System Logo" width="200"/>
+  <img src="src/assets/images/icon.png" alt="AI-Powered Talent Acquisition System Logo" width="200"/>
   <p>Revolutionizing recruitment with cutting-edge AI-driven candidate matching, seamless screening automation, and intelligent filtering—transforming complex hiring into a streamlined, efficient flow.</p>
 
   <img src="https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React"/>
@@ -11,24 +11,24 @@
   <img src="https://img.shields.io/badge/Chart.js-FF6384?style=for-the-badge&logo=chart.js&logoColor=white" alt="Chart.js"/>
 </div>
 
-## 📱 About
+## About
 
 **AI-Powered Talent Acquisition System** is an innovative platform designed to **transform the hiring process through advanced AI models and machine learning techniques**. Built for modern HR departments and recruitment agencies, it delivers a **comprehensive solution for sourcing, screening, and selecting the best candidates** with unprecedented efficiency and accuracy. Our system leverages **sophisticated natural language processing, intelligent resume parsing, semantic matching algorithms, and data-driven predictive analytics** to solve the critical challenges of identifying ideal talent in competitive markets while eliminating unconscious bias and dramatically reducing time-to-hire metrics.
 
 - **Key Features:** AI-driven candidate matching, automated resume screening, intelligent interview scheduling, bias detection and mitigation, customizable assessment workflows, analytics dashboard
 - **Purpose:** Streamline recruitment processes, identify best-fit candidates, reduce time-to-hire, eliminate unconscious bias
 
-## ✨ Features
+## Features
 
-- 📄 **Smart Resume Parsing** - Extract candidate information with 85% accuracy for names and emails
-- 🔍 **Keyword Matching** - Find candidates based on matching job requirements and skills
-- 📝 **Customizable Job Criteria** - HR can enter job descriptions and customize metric weights based on company emphasis
-- 📊 **Duplicate Detection** - Automatically identify and prevent duplicate resume submissions
-- 📁 **Batch Processing** - Upload and analyze multiple resumes simultaneously
-- 🗂️ **Organized Candidate Management** - Auto-categorize candidates into folders by batch
-- 📈 **Analytics Dashboard** - Track recruitment metrics and visualize candidate pipeline
+- **Smart Resume Parsing** - Extract candidate information with 85% accuracy for names and emails
+- **Keyword Matching** - Find candidates based on matching job requirements and skills
+- **Customizable Job Criteria** - HR can enter job descriptions and customize metric weights based on company emphasis
+- **Duplicate Detection** - Automatically identify and prevent duplicate resume submissions
+- **Batch Processing** - Upload and analyze multiple resumes simultaneously
+- **Organized Candidate Management** - Auto-categorize candidates into folders by batch
+- **Analytics Dashboard** - Track recruitment metrics and visualize candidate pipeline
 
-## 🤖 AI Matching System
+## AI Matching System
 
 Our talent acquisition platform implements a streamlined candidate processing pipeline:
 
@@ -50,7 +50,7 @@ Our talent acquisition platform implements a streamlined candidate processing pi
    - Education background evaluation
    - Customizable metric weighting based on company priorities
 
-## 💡Solution Architecture  
+## Solution Architecture  
 
 ```mermaid
 graph TD
@@ -72,11 +72,11 @@ graph TD
     Q[Duplicate Detection] --> E
 ```
 
-## 📊 Performance Metrics
+## Performance Metrics
 
 Our system demonstrates effective performance across key recruitment metrics:
 
-### 📈 Processing Accuracy Metrics
+### Processing Accuracy Metrics
 
 The platform consistently delivers reliable document processing:
 
@@ -87,7 +87,7 @@ The platform consistently delivers reliable document processing:
 | Duplicate Detection | 100% | Accuracy in identifying repeated resume submissions |
 | Batch Processing | 100 files | Maximum number of resumes processable in a single batch |
 
-### 🚩 System Effectiveness & Key Features
+### System Effectiveness & Key Features
 
 Our system delivers effective recruitment capabilities through efficient processing:
 
@@ -195,7 +195,7 @@ Analysis API: ✅ Success
 
 The system delivers efficient resume processing and candidate matching while providing valuable insights to recruiters.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 <table>
   <tr>
@@ -263,30 +263,30 @@ The system delivers efficient resume processing and candidate matching while pro
   </tr>
 </table>
 
-## 🔮 Future Roadmap
+## Future Roadmap
 
 Our development roadmap focuses on enhancing the platform's capabilities:
 
-- **🧠 Advanced Resume Analysis** - Implement more precise resume analysis with machine learning and fine-tuning
-- **🌐 Language Support** - Address language barriers with translation capabilities for international recruitment
-- **🤖 Interactive Chatbot Agent** - Develop customizable AI chatbot agents for initial candidate screening
-- **✉️ Automated Communications** - AI tools for writing personalized emails to notify qualified candidates for next phases
-- **📱 Mobile Experience** - Responsive design for on-the-go recruitment management
-- **🔄 Integration Ecosystem** - Connect with existing HR systems for seamless workflow
+- **Advanced Resume Analysis** - Implement more precise resume analysis with machine learning and fine-tuning
+- **Language Support** - Address language barriers with translation capabilities for international recruitment
+- **Interactive Chatbot Agent** - Develop customizable AI chatbot agents for initial candidate screening
+- **Automated Communications** - AI tools for writing personalized emails to notify qualified candidates for next phases
+- **Mobile Experience** - Responsive design for on-the-go recruitment management
+- **Integration Ecosystem** - Connect with existing HR systems for seamless workflow
 
-## 🏆 Impact
+## Impact
 
 Our AI-Powered Talent Acquisition System delivers measurable improvements to the recruitment process:
 
-- **⏱️ Reduced Time-to-Hire**: Decreases hiring cycle by 71% through automation and intelligent matching
-- **💰 Cost Savings**: Lowers recruitment costs by 65% by reducing agency fees and staff time
-- **🎯 Quality of Hire**: Improves performance ratings of new hires by 37% through better matching
-- **♻️ Retention**: Increases first-year retention by 42% through better role fit assessment
-- **🌈 Diversity**: Enhances workforce diversity metrics by 53% through bias mitigation
+- **Reduced Time-to-Hire**: Decreases hiring cycle by 71% through automation and intelligent matching
+- **Cost Savings**: Lowers recruitment costs by 65% by reducing agency fees and staff time
+- **Quality of Hire**: Improves performance ratings of new hires by 37% through better matching
+- **Retention**: Increases first-year retention by 42% through better role fit assessment
+- **Diversity**: Enhances workforce diversity metrics by 53% through bias mitigation
 
 ---
 
 <div align="center">
-  <strong>Made by Team 'We Just Wanted the Free T-Shirt and Accidentally Made a Startup'</strong>
+  <strong>Made by Team [We Just Wanted the Free T-Shirt and Accidentally Made a Startup]</strong>
 </div>
 
