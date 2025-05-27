@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="src/assets/images/logo2.png" alt="AI-Powered Talent Acquisition System Logo" width="500"/>
+  <img src="src/assets/images/logo2.png" alt="AI-Powered Talent Acquisition System Logo" width="350"/>
   <h1></h1>
   <p>Revolutionizing recruitment with cutting-edge AI-driven candidate matching, seamless screening automation, and intelligent filtering—transforming complex hiring into a streamlined, efficient flow.</p>
 
