@@ -58,24 +58,25 @@ Our talent acquisition platform implements a streamlined candidate processing pi
 ```mermaid
 graph TD
     A[Resume Upload] --> B[Document Processing]
+    BP[Batch Processing] --> A
+    DD[Duplicate Detection] --> A
     B --> C[Text Extraction]
     D[PDF/Document Parser] --> B
     C --> E[Candidate Information Extraction]
     E --> F[AI Analysis]
-    F --> Z[Scoring System]
-    F --> P[Keyword Matching]
-    Z --> G[Candidate Ranking]
-    P --> G[Candidate Ranking]
     
     H[Job Description Input] --> F
     I[Customize Metric Weights] --> F
     
+    F --> KM[Keyword Matching]
+    F --> SS[Scoring System]
+    
+    KM --> G[Candidate Ranking]
+    SS --> G[Candidate Ranking]
+    
     G --> M[Recruiter Dashboard]
     G --> N[Analytics Visualization]
     G --> O[Resume Viewer]
-    
-    P[Batch Processing] --> A
-    Q[Duplicate Detection] --> A
 ```
 
 ### Technical Architecture
