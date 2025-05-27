@@ -100,7 +100,22 @@ tsconfig.tsbuildinfo
 .branches
 .temp
 .lock
+
+# Test and sample files
 /samples
 /backend/samples
-login_hugginggace.py
+/samples/*
+login_huggingface.py
 test_pdf_extraction.py
+test_*.py
+test_*.js
+
+# Documentation and guide files that might contain sensitive information
+*-instructions.md
+*-integration.md
+*schema.sql
+*-schema.sql
+
+# Project specific files that shouldn't be tracked
+run-schema-update.sh
+test-hr-data.js
