@@ -97,9 +97,15 @@ graph TD
     end
     
     subgraph "Processing"
-        C1[PDF Extraction]
-        C2[DOCX Parsing]
-        C3[Text Analysis]
+        C1[PDF.js Extraction]
+        C2[Mammoth DOCX Parser]
+        C3[PDFMiner Text Extraction]
+    end
+    
+    subgraph "AI Analysis"
+        E1[OpenAI Model]
+        E2[Keyword Matching]
+        E3[Resume Scoring]
     end
     
     subgraph "Database"
@@ -112,7 +118,11 @@ graph TD
     B1 --> C2
     C1 --> C3
     C2 --> C3
-    C3 --> B1
+    C3 --> E1
+    E1 --> E2
+    E1 --> E3
+    E2 --> B1
+    E3 --> B1
     B1 --> D1
     B2 --> D2
 ```
