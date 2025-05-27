@@ -53,24 +53,93 @@ Our talent acquisition platform implements a streamlined candidate processing pi
 
 ## Solution Architecture  
 
+### User Flow
+
 ```mermaid
 graph TD
     A[Resume Upload] --> B[Document Processing]
     B --> C[Text Extraction]
     D[PDF/Document Parser] --> B
     C --> E[Candidate Information Extraction]
-    E --> F[Matching Engine]
-    F --> G[Candidate Ranking]
+    E --> F[AI Analysis]
+    F --> Z[Scoring System]
+    F --> P[Keyword Matching]
+    Z --> G[Candidate Ranking]
+    P --> G[Candidate Ranking]
     
     H[Job Description Input] --> F
-    I[Keyword Database] --> F
+    I[Customize Metric Weights] --> F
     
     G --> M[Recruiter Dashboard]
     G --> N[Analytics Visualization]
-    G --> O[Candidate Management]
+    G --> O[Resume Viewer]
     
     P[Batch Processing] --> A
-    Q[Duplicate Detection] --> E
+    Q[Duplicate Detection] --> A
+```
+
+### Technical Architecture
+
+```mermaid
+graph TD
+    subgraph "Frontend"
+        A1[React UI Components]
+        A2[Vite Build System]
+        A3[TypeScript]
+        A4[Tailwind CSS]
+        A5[Material UI]
+        A6[Chart.js Dashboard]
+        A7[React Router]
+        A8[React PDF Viewer]
+    end
+    
+    subgraph "Backend API"
+        B1[Node.js Server]
+        B2[Express API Routes]
+        B3[Supabase Integration]
+        B4[Authentication Service]
+        B5[File Upload Handler]
+    end
+    
+    subgraph "Document Processing"
+        C1[PDF.js Extractor]
+        C2[Mammoth DOCX Parser]
+        C3[Text Extraction Service]
+        C4[Document Structure Analysis]
+    end
+    
+    subgraph "Analysis Engine"
+        D1[Keyword Matching Module]
+        D2[Resume Scoring System]
+        D3[Candidate Ranking Algorithm]
+        D4[Duplicate Detection]
+    end
+    
+    subgraph "Data Storage"
+        E1[Supabase Database]
+        E2[File Storage]
+        E3[User Profiles]
+        E4[Resume Repository]
+        E5[Job Descriptions]
+    end
+    
+    A1 --> B1
+    B1 --> C1
+    B1 --> C2
+    C1 --> C3
+    C2 --> C3
+    C3 --> D1
+    C3 --> D2
+    B2 --> D3
+    B5 --> C3
+    D1 --> D3
+    D2 --> D3
+    D4 --> B5
+    B1 --> E1
+    B5 --> E2
+    D3 --> E1
+    E4 --> C3
+    E5 --> D1
 ```
 
 ## Performance Metrics
