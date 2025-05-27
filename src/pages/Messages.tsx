@@ -52,7 +52,7 @@ const Messages: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
@@ -60,8 +60,8 @@ const Messages: React.FC = () => {
           <p className="text-gray-500">Stay connected with your team and clients.</p>
         </div>
         
-        <button className="px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded-md hover:bg-primary-600 transition-colors duration-200 flex items-center shadow-sm">
-          <Edit size={14} className="mr-1.5" />
+        <button className="px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded hover:bg-primary-600 transition-colors duration-200 flex items-center shadow-button">
+          <Edit size={12} className="mr-1" />
           <span>Compose</span>
         </button>
       </div>
@@ -72,35 +72,35 @@ const Messages: React.FC = () => {
         <input
           type="text"
           placeholder="Search messages..."
-          className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-md text-sm focus:outline-none focus:border-primary-500 transition-colors duration-200"
+          className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded text-sm focus:outline-none focus:border-primary-500 transition-colors duration-200"
         />
       </div>
 
       {/* Messages List */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-100">
+      <div className="bg-white rounded-md border border-gray-200 shadow-card divide-y divide-gray-200">
         {messages.map((message) => (
           <div 
             key={message.id}
             className={`
-              p-4 hover:bg-gray-50 transition-colors duration-200 cursor-pointer
+              p-3 hover:bg-gray-50 transition-colors duration-200 cursor-pointer
               ${message.unread ? 'bg-primary-50' : ''}
             `}
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
-                  <span className="text-sm font-medium text-primary-600">
+              <div className="flex items-center space-x-3">
+                <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center">
+                  <span className="text-xs font-medium text-primary-600">
                     {message.sender.split(' ').map(n => n[0]).join('')}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className={`text-sm font-medium ${message.unread ? 'text-gray-900' : 'text-gray-700'}`}>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <h3 className={`text-xs font-medium ${message.unread ? 'text-gray-900' : 'text-gray-700'}`}>
                       {message.sender}
                     </h3>
                     <span className="text-xs text-gray-500">{message.time}</span>
                   </div>
-                  <h4 className={`text-sm ${message.unread ? 'font-medium text-gray-800' : 'text-gray-600'}`}>
+                  <h4 className={`text-xs ${message.unread ? 'font-medium text-gray-800' : 'text-gray-600'}`}>
                     {message.subject}
                   </h4>
                   <p className="text-xs text-gray-500 truncate">
@@ -108,17 +108,17 @@ const Messages: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center space-x-2 ml-4">
-                <button className={`p-1 rounded-md transition-colors duration-200 ${
+              <div className="flex items-center space-x-1 ml-3">
+                <button className={`p-1 rounded transition-colors duration-200 ${
                   message.starred ? 'text-yellow-500 hover:text-yellow-600' : 'text-gray-400 hover:text-gray-600'
                 }`}>
-                  <Star size={16} />
+                  <Star size={14} />
                 </button>
-                <button className="p-1 text-gray-400 hover:text-gray-600 rounded-md transition-colors duration-200">
-                  <Trash2 size={16} />
+                <button className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors duration-200">
+                  <Trash2 size={14} />
                 </button>
-                <button className="p-1 text-gray-400 hover:text-gray-600 rounded-md transition-colors duration-200">
-                  <MoreVertical size={16} />
+                <button className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors duration-200">
+                  <MoreVertical size={14} />
                 </button>
               </div>
             </div>

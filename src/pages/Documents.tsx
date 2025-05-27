@@ -729,7 +729,7 @@ const Documents: React.FC = () => {
 
   // Render the UI based on whether we're viewing folder list or files in a folder
   return (
-    <div className="space-y-8 -ml-1">
+    <div className="space-y-8 -ml-0">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
