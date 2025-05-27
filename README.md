@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="src/assets/images/icon.png" alt="AI-Powered Talent Acquisition System Logo" width="200"/>
+  <img src="src/assets/images/logo.png" alt="AI-Powered Talent Acquisition System Logo" width="200"/>
   <h1>FORESIGHT</h1>
   <p>Revolutionizing recruitment with cutting-edge AI-driven candidate matching, seamless screening automation, and intelligent filtering—transforming complex hiring into a streamlined, efficient flow.</p>
 
@@ -271,7 +271,7 @@ Our development roadmap focuses on enhancing the platform's capabilities:
 - **Advanced Resume Analysis** - Implement more precise resume analysis with machine learning and fine-tuning
 - **Language Support** - Address language barriers with translation capabilities for international recruitment
 - **Interactive Chatbot Agent** - Develop customizable AI chatbot agents for initial candidate screening
-- **Automated Communications** - AI tools for writing personalized emails to notify qualified candidates for next phases
+- **Email with AI** - AI tools for writing personalized emails to notify qualified candidates for next phases
 - **Mobile Experience** - Responsive design for on-the-go recruitment management
 - **Integration Ecosystem** - Connect with existing HR systems for seamless workflow
 
