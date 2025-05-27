@@ -52,7 +52,7 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
 
   return (
     <div className={`
-      rounded-md p-5 
+      rounded p-5 
       ${colorClasses.bg} border-2 ${colorClasses.border}
       ${colorClasses.shadow}
       transition-all duration-200 hover:shadow-md group
@@ -85,11 +85,19 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
         </div>
         
         <div className={`
-          w-10 h-10 rounded-md flex items-center justify-center shadow-sm
-          transition-transform duration-200 group-hover:scale-110
+          w-10 h-10 rounded flex items-center justify-center shadow-sm
+          transition-all duration-200 relative
           ${colorClasses.iconBg} ${colorClasses.iconText}
         `}>
-          {icon}
+          <div className={`
+            absolute inset-0 rounded filter blur-sm opacity-70
+            ${color === 'primary' ? 'bg-primary-400' : 
+              color === 'secondary' ? 'bg-secondary-400' : 
+              'bg-tertiary-400'}
+          `}></div>
+          <div className="relative z-10">
+            {icon}
+          </div>
         </div>
       </div>
     </div>

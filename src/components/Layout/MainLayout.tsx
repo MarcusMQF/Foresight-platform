@@ -5,7 +5,7 @@ import Topbar from './Topbar';
 
 const MainLayout: React.FC = () => {
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-
+  
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Sidebar */}

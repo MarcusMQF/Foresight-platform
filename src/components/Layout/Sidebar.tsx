@@ -7,7 +7,6 @@ import {
   FileText, 
   Calendar, 
   Mail, 
-  BarChart2, 
   HelpCircle,
   FileCheck} from 'lucide-react';
 import { useWindowSize } from '../../hooks/useWindowSize';
@@ -141,7 +140,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               <NavItem icon={<Calendar size={16} />} text="Calendar" to="/calendar" expanded={expanded} />
               <NavItem icon={<Mail size={16} />} text="Messages" to="/messages" expanded={expanded} />
               <NavItem icon={<User size={16} />} text="Profile" to="/profile" expanded={expanded} />
-              <NavItem icon={<BarChart2 size={16} />} text="Analytics" to="/analytics" expanded={expanded} />
               <NavItem icon={<FileCheck size={16} />} text="Resume Test" to="/test/resume-analysis" expanded={expanded} />
             </ul>
 

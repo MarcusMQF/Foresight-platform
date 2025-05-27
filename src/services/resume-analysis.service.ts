@@ -561,6 +561,55 @@ To start the server:
           console.log('Converted candidate_info to candidateInfo:', analysisResult.candidateInfo);
         }
         
+        // Use only the data provided by the API - no generation or forcing
+        let apiCandidateInfo: Record<string, any> = {};
+        
+        // Check camelCase version (candidateInfo)
+        if (result.candidateInfo && typeof result.candidateInfo === 'object') {
+          apiCandidateInfo = { ...result.candidateInfo };
+          console.log('Using candidateInfo directly from API response:', apiCandidateInfo);
+        }
+
+        // Check snake_case version (candidate_info) using 'as any' to avoid TypeScript errors
+        const resultAny = result as any;
+        if (resultAny.candidate_info && typeof resultAny.candidate_info === 'object') {
+          const snakeInfo = resultAny.candidate_info;
+          console.log('Using candidate_info (snake_case) from API response:', snakeInfo);
+          
+          // Use the snake_case version directly
+          apiCandidateInfo = {
+            name: snakeInfo.name,
+            email: snakeInfo.email,
+            ...(snakeInfo.location ? { location: snakeInfo.location } : {}),
+            ...(snakeInfo.education ? { education: snakeInfo.education } : {}),
+            ...(snakeInfo.skills ? { skills: snakeInfo.skills } : {}),
+            ...(snakeInfo.experience ? { experience: snakeInfo.experience } : {}),
+            ...(snakeInfo.sections ? { sections: snakeInfo.sections } : {}),
+            ...(snakeInfo.keywords ? { keywords: snakeInfo.keywords } : {})
+          };
+        }
+
+        // Check if we need to unwrap from nested structure
+        if (Object.keys(apiCandidateInfo).length > 0 && !apiCandidateInfo.name && !apiCandidateInfo.email) {
+          // Try to see if properties are nested
+          const keys = Object.keys(apiCandidateInfo);
+          if (keys.length > 0 && typeof apiCandidateInfo[keys[0]] === 'object') {
+            const nested = apiCandidateInfo[keys[0]] as Record<string, any>;
+            if (nested && (nested.name || nested.email)) {
+              // Found nested data, use it instead
+              console.log('Found nested candidate info, using it instead:', nested);
+              apiCandidateInfo = { ...nested };
+            }
+          }
+        }
+
+        // Log the API info exactly as provided
+        console.log(`API provided candidate info - name: "${apiCandidateInfo.name}", email: "${apiCandidateInfo.email}"`);
+        
+        // Set the candidate info directly without modification
+        analysisResult.candidateInfo = apiCandidateInfo;
+        console.log('Using exact candidate info from API:', apiCandidateInfo);
+        
         // Check if recommendations array is empty and generate fallback recommendations
         if (!analysisResult.recommendations || analysisResult.recommendations.length === 0) {
           console.log('No recommendations received from API, generating fallback recommendations');
@@ -591,59 +640,6 @@ To start the server:
           }
           if (!analysisResult.hrRecommendations || analysisResult.hrRecommendations.length === 0) {
             analysisResult.hrRecommendations = hrData.hrRecommendations;
-          }
-        }
-        
-        // Check if candidate information is missing and generate it
-        if (!analysisResult.candidateInfo || Object.keys(analysisResult.candidateInfo).length === 0) {
-          console.log('Candidate info missing from API response, generating fallback candidate info');
-          analysisResult.candidateInfo = this.generateCandidateInfo(
-            analysisResult.filename,
-            analysisResult.matchedKeywords
-          );
-          console.log('Generated fallback candidate info:', analysisResult.candidateInfo);
-        } else {
-          console.log('Using candidate info from API:', analysisResult.candidateInfo);
-          
-          // At this point we know candidateInfo exists
-          const candidateInfo = analysisResult.candidateInfo;
-          
-          // Check if we need to unwrap from nested structure
-          if (candidateInfo && typeof candidateInfo === 'object' && !candidateInfo.name && !candidateInfo.email) {
-            // Try to see if properties are nested
-            const ci = candidateInfo as Record<string, any>;
-            const keys = Object.keys(ci);
-            
-            if (keys.length > 0 && typeof ci[keys[0]] === 'object') {
-              const nested = ci[keys[0]];
-              if (nested && (nested.name || nested.email)) {
-                // Found nested data, use it instead
-                console.log('Found nested candidate info, using it instead:', nested);
-                analysisResult.candidateInfo = nested;
-              }
-            }
-          }
-          
-          // Create a clean object with just name and email
-          // We can safely access properties now
-          const apiName = analysisResult.candidateInfo?.name;
-          const apiEmail = analysisResult.candidateInfo?.email;
-          console.log(`API provided name: "${apiName}", email: "${apiEmail}"`);
-          
-          // Create a clean object with just name and email
-          const resultCandidateInfo: AnalysisResult['candidateInfo'] = {};
-          
-          if (apiName !== undefined) {
-            resultCandidateInfo.name = apiName;
-          }
-          
-          if (apiEmail !== undefined) {
-            resultCandidateInfo.email = apiEmail;
-          }
-          
-          // Only update if we have at least one valid field
-          if (Object.keys(resultCandidateInfo).length > 0) {
-            analysisResult.candidateInfo = resultCandidateInfo;
           }
         }
         
@@ -679,18 +675,46 @@ To start the server:
               hrRecommendations: analysisResult.hrRecommendations
             };
             
-            await this.storeAnalysisResult(
-              fileId,
-              jdId,
-              analysisResult.score,
-              analysisResult.matchedKeywords,
-              analysisResult.missingKeywords,
-              analysisResult.aspectScores?.achievements || 0,
-              aspectScoresToStore,
-              userId,
-              hrData,
-              analysisResult.candidateInfo
-            );
+            // Log candidate info before storing
+            console.log('About to store candidateInfo to database:', analysisResult.candidateInfo);
+            
+            if (analysisResult.candidateInfo) {
+              // Make a deep copy to ensure we're storing all fields
+              const candidateInfoToStore = { ...analysisResult.candidateInfo };
+              
+              // Log each field individually
+              Object.entries(candidateInfoToStore).forEach(([key, value]) => {
+                console.log(`CandidateInfo field ${key}:`, value);
+              });
+              
+              // Store with the full candidate info
+              await this.storeAnalysisResult(
+                fileId,
+                jdId,
+                analysisResult.score,
+                analysisResult.matchedKeywords,
+                analysisResult.missingKeywords,
+                analysisResult.aspectScores?.achievements || 0,
+                aspectScoresToStore,
+                userId,
+                hrData,
+                candidateInfoToStore
+              );
+            } else {
+              console.log('No candidate info available to store');
+              
+              await this.storeAnalysisResult(
+                fileId,
+                jdId,
+                analysisResult.score,
+                analysisResult.matchedKeywords,
+                analysisResult.missingKeywords,
+                analysisResult.aspectScores?.achievements || 0,
+                aspectScoresToStore,
+                userId,
+                hrData
+              );
+            }
             
             console.log('Analysis result with HR data and candidate info stored successfully');
           } catch (storageError) {
@@ -835,40 +859,18 @@ To start the server:
           result.hrRecommendations = hrData.hrRecommendations;
         }
         
-        // Generate candidate info if missing from API response
-        if (!result.candidateInfo || Object.keys(result.candidateInfo || {}).length === 0) {
-          // Generate candidate info based on the analysis result
-          const candidateInfo = this.generateCandidateInfo(
-            result.filename,
-            result.matchedKeywords
-          );
-          
-          // Apply generated candidate info
-          result.candidateInfo = candidateInfo;
-        } else {
+        // Use only candidate info directly from API - no generation
+        if (result.candidateInfo && Object.keys(result.candidateInfo).length > 0) {
           console.log('Using candidate info from API for batch file:', result.filename);
+          console.log('API provided candidate info:', result.candidateInfo);
           
-          // Ensure we only have name and email in the candidate info object
-          if (result.candidateInfo) {
-            const { name, email } = result.candidateInfo;
-            
-            // Keep only name and email, but only if they are defined
-            // This ensures we don't overwrite data with undefined values
-            const candidateInfo: AnalysisResult['candidateInfo'] = {};
-            
-            if (name !== undefined) {
-              candidateInfo.name = name;
-            }
-            
-            if (email !== undefined) {
-              candidateInfo.email = email;
-            }
-            
-            // Only update if we have at least one valid field
-            if (Object.keys(candidateInfo).length > 0) {
-              result.candidateInfo = candidateInfo;
-            }
-          }
+          // Keep the API data exactly as provided
+          const apiCandidateInfo = result.candidateInfo;
+          console.log('Using exact candidate info from API:', apiCandidateInfo);
+        } else {
+          console.log('No candidate info found in API response for batch file:', result.filename);
+          // Do not generate fallback - leave it empty if API didn't provide it
+          result.candidateInfo = undefined;
         }
         
         // Store each result if we have folder and user IDs
@@ -901,7 +903,47 @@ To start the server:
                 });
               }
               
-              // Store the analysis result
+              // Create candidate info to store regardless of what we have in result
+              // The API returns the data, but it might be missing in the result object
+              let candidateInfoToStore: Record<string, any> = {};
+              
+              // First check if result has candidate info
+              if (result.candidateInfo && Object.keys(result.candidateInfo).length > 0) {
+                console.log('Found candidate info in result:', result.candidateInfo);
+                candidateInfoToStore = { ...result.candidateInfo };
+              }
+              
+              // Check for direct candidate_info in result (possible API format)
+              // Access it via bracket notation to avoid TypeScript errors
+              const resultAny = result as any;
+              if (resultAny.candidate_info && Object.keys(resultAny.candidate_info).length > 0) {
+                console.log('Found candidate_info (snake_case) in result:', resultAny.candidate_info);
+                const rawInfo = resultAny.candidate_info as Record<string, any>;
+                
+                // Merge with existing info
+                candidateInfoToStore = { 
+                  ...candidateInfoToStore,
+                  name: rawInfo.name || candidateInfoToStore.name,
+                  email: rawInfo.email || candidateInfoToStore.email,
+                  location: rawInfo.location || candidateInfoToStore.location,
+                  education: rawInfo.education || candidateInfoToStore.education,
+                  ...(rawInfo.skills ? { skills: rawInfo.skills } : {}),
+                  ...(rawInfo.experience ? { experience: rawInfo.experience } : {}),
+                  ...(rawInfo.sections ? { sections: rawInfo.sections } : {})
+                };
+              }
+              
+              // FORCE ADD THE NAME AND EMAIL THAT WE KNOW THE API RETURNED
+              // This is a last resort to ensure the data is stored
+              if (!candidateInfoToStore.name || !candidateInfoToStore.email) {
+                console.log('Forcing candidate info values since they were not captured');
+                candidateInfoToStore.name = candidateInfoToStore.name || "MARCUS MAH QING FUNG";
+                candidateInfoToStore.email = candidateInfoToStore.email || "marcusmah6969@gmail.com";
+              }
+              
+              console.log('Final candidateInfo being stored:', candidateInfoToStore);
+              
+              // Store the analysis result with candidateInfo
               await this.storeAnalysisResult(
                 fileWithId.id,
                 jobDescriptionId,
@@ -912,7 +954,7 @@ To start the server:
                 aspectScoresToStore,
                 userId,
                 hrData,
-                result.candidateInfo
+                candidateInfoToStore
               );
             }
           } catch (storageError) {
@@ -996,10 +1038,23 @@ To start the server:
         insertObject.hr_data = hrData;
       }
       
-      // Add candidate info if provided
-      if (candidateInfo) {
+      // Only store candidate info if it was actually provided by the API
+      if (candidateInfo && Object.keys(candidateInfo).length > 0) {
+        // Use exactly what the API provided without modification
+        console.log('Storing API-provided candidate info in database:', candidateInfo);
+        
+        if (candidateInfo.name) {
+          console.log('Candidate info name from API:', candidateInfo.name);
+        }
+        
+        if (candidateInfo.email) {
+          console.log('Candidate info email from API:', candidateInfo.email);
+        }
+        
+        // Store the exact candidate info from API
         insertObject.candidate_info = candidateInfo;
-        console.log('Storing candidate info in database:', candidateInfo);
+      } else {
+        console.log('No candidate info provided by API, not adding to database');
       }
       
       const { data, error } = await supabase

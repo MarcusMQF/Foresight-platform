@@ -237,10 +237,27 @@ const ResumeDetails: React.FC = () => {
         let candidateInfo: Record<string, any> = {};
         try {
           if (analysisData[0].candidate_info) {
+            // Log raw candidate_info from database
+            console.log('Raw candidate_info from database:', analysisData[0].candidate_info);
+            
+            // Parse string or use object directly
             if (typeof analysisData[0].candidate_info === 'string') {
-              candidateInfo = JSON.parse(analysisData[0].candidate_info);
+              try {
+                candidateInfo = JSON.parse(analysisData[0].candidate_info);
+                console.log('Successfully parsed candidate_info string');
+              } catch (parseError) {
+                console.error('Failed to parse candidate_info string:', parseError);
+                // Try to handle as string content
+                candidateInfo = { 
+                  name: 'Parsed Name', 
+                  email: 'parsed@example.com',
+                  raw: analysisData[0].candidate_info
+                };
+              }
             } else {
+              // Use object directly
               candidateInfo = analysisData[0].candidate_info;
+              console.log('Using candidate_info object directly');
             }
             
             // Log the candidate info we found in the database for debugging
@@ -263,6 +280,33 @@ const ResumeDetails: React.FC = () => {
                 candidateInfo = nestedData;
               }
             }
+            
+            // Check for education as a special case since it might contain important details
+            if (candidateInfo.education) {
+              console.log('Found education info:', candidateInfo.education);
+            }
+            
+            // Check for location info
+            if (candidateInfo.location) {
+              console.log('Found location info:', candidateInfo.location);
+            }
+            
+            // Save candidate info fields directly in the object
+            candidateInfo = {
+              name: candidateInfo.name || '',
+              email: candidateInfo.email || '',
+              location: candidateInfo.location || '',
+              education: candidateInfo.education || '',
+              // Include any other fields we want to preserve
+              ...(candidateInfo.skills ? { skills: candidateInfo.skills } : {}),
+              ...(candidateInfo.experience ? { experience: candidateInfo.experience } : {}),
+              ...(candidateInfo.sections ? { sections: candidateInfo.sections } : {}),
+              ...(candidateInfo.keywords ? { keywords: candidateInfo.keywords } : {})
+            };
+            
+            console.log('Final candidate info object:', candidateInfo);
+          } else {
+            console.log('No candidate_info found in database record');
           }
         } catch (e) {
           console.error('Error parsing candidate info:', e);
@@ -311,11 +355,14 @@ const ResumeDetails: React.FC = () => {
           recommendations: [], // We don't store recommendations in the database yet
           analyzed_at: analysisData[0].created_at,
           aspectScores: aspectScores,
-          candidateInfo: candidateInfo,
+          candidateInfo: candidateInfo && Object.keys(candidateInfo).length > 0 ? candidateInfo : {},
           hrAnalysis: hrAnalysis,
           hrAssessment: hrAssessment,
           hrRecommendations: hrRecommendations
         };
+        
+        // Debug log to check if candidate info is present
+        console.log('Created selectedResult with candidateInfo:', selectedResult.candidateInfo);
         
         // Generate HR data if not available (silently, without requiring user action)
         if ((!selectedResult.hrAnalysis || Object.keys(selectedResult.hrAnalysis).length === 0) ||
@@ -362,56 +409,17 @@ const ResumeDetails: React.FC = () => {
           }
         }
         
-        // Generate candidate info if not available
-        if (!selectedResult.candidateInfo || Object.keys(selectedResult.candidateInfo).length === 0) {
-          console.log('No candidate info found, generating it automatically');
-          
-          try {
-            // Use the service to generate candidate info
-            const analysisService = resumeAnalysisService as any;
-            if (typeof analysisService.generateCandidateInfo === 'function') {
-              const generatedCandidateInfo = analysisService.generateCandidateInfo(
-                selectedResult.filename,
-                selectedResult.matchedKeywords
-              );
-              
-              // Validate the generated info
-              if (!generatedCandidateInfo.name || !generatedCandidateInfo.email) {
-                console.log('Generated candidate info missing name/email, adding defaults');
-                generatedCandidateInfo.name = generatedCandidateInfo.name || 'Candidate Name';
-                generatedCandidateInfo.email = generatedCandidateInfo.email || 'candidate@example.com';
-              }
-              
-              // Update the result with candidate info
-              selectedResult.candidateInfo = generatedCandidateInfo;
-              
-              // Store the candidate info in the database
-              try {
-                await supabase
-                  .from('analysis_results')
-                  .update({
-                    candidate_info: generatedCandidateInfo
-                  })
-                  .eq('id', selectedResult.id);
-                  
-                console.log('Automatically generated and stored candidate info:', generatedCandidateInfo);
-              } catch (storeError) {
-                console.error('Error storing generated candidate info:', storeError);
-              }
-            }
-          } catch (error) {
-            console.error('Error automatically generating candidate info:', error);
-          }
-        } else {
+        // Handle candidate info that was loaded from the database
+        if (selectedResult.candidateInfo && Object.keys(selectedResult.candidateInfo).length > 0) {
           // Log existing candidate info
-          console.log('Using existing candidate info:', selectedResult.candidateInfo);
+          console.log('Using existing candidate info from database:', selectedResult.candidateInfo);
           
-          // Ensure it has required properties
-          if (!selectedResult.candidateInfo.name || !selectedResult.candidateInfo.email) {
-            console.log('Existing candidate info missing name/email, adding defaults');
-            selectedResult.candidateInfo.name = selectedResult.candidateInfo.name || 'Candidate Name';
-            selectedResult.candidateInfo.email = selectedResult.candidateInfo.email || 'candidate@example.com';
-          }
+          // Keep the exact values from the database without modification
+          console.log('Preserving exact candidate info values from database');
+        } else {
+          // No candidate info found - leave it empty
+          console.log('No candidate info found in database - not generating any fallback');
+          selectedResult.candidateInfo = {};
         }
         
         console.log('Setting result:', selectedResult);
@@ -821,13 +829,12 @@ const ResumeDetails: React.FC = () => {
             )}
 
             {/* Candidate Information Section */}
-            {result.candidateInfo && (
-              <div>
-                <h4 className="text-xs font-medium text-gray-700 mb-1">Candidate Information</h4>
-                <div className="bg-gray-50 p-2 rounded-md">
-                  {/* Only display name and email */}
+            <div>
+              <h4 className="text-xs font-medium text-gray-700 mb-1">Candidate Information</h4>
+              <div className="bg-gray-50 p-2 rounded-md">
+                {result.candidateInfo && Object.keys(result.candidateInfo).length > 0 ? (
                   <div className="mb-2">
-                    {/* Safely access candidate info properties */}
+                    {/* Show name if available */}
                     {result.candidateInfo.name ? (
                       <div className="flex items-center text-xs mb-1">
                         <span className="text-gray-600 font-medium w-20">Name:</span>
@@ -835,20 +842,39 @@ const ResumeDetails: React.FC = () => {
                       </div>
                     ) : null}
                     
+                    {/* Show email if available */}
                     {result.candidateInfo.email ? (
                       <div className="flex items-center text-xs mb-1">
                         <span className="text-gray-600 font-medium w-20">Email:</span>
                         <span className="text-gray-800">{result.candidateInfo.email}</span>
                       </div>
                     ) : null}
-                    
-                    {!result.candidateInfo.name && !result.candidateInfo.email && (
-                      <div className="text-xs text-gray-500">No candidate information available</div>
-                    )}
+
+                    {/* Show location if available */}
+                    {result.candidateInfo.location ? (
+                      <div className="flex items-center text-xs mb-1">
+                        <span className="text-gray-600 font-medium w-20">Location:</span>
+                        <span className="text-gray-800">{result.candidateInfo.location}</span>
+                      </div>
+                    ) : null}
+
+                    {/* Show education if available */}
+                    {result.candidateInfo.education ? (
+                      <div className="flex items-start text-xs mb-1">
+                        <span className="text-gray-600 font-medium w-20">Education:</span>
+                        <span className="text-gray-800 flex-1">{typeof result.candidateInfo.education === 'string' ? 
+                          result.candidateInfo.education : 
+                          (Array.isArray(result.candidateInfo.education) ? 
+                            result.candidateInfo.education.join(', ') : 
+                            'Education information available')}</span>
+                      </div>
+                    ) : null}
                   </div>
-                </div>
+                ) : (
+                  <div className="text-xs text-gray-500">No candidate information from API</div>
+                )}
               </div>
-            )}
+            </div>
 
             {/* HR Assessment Section */}
             <div>
