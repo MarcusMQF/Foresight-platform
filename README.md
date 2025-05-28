@@ -252,7 +252,7 @@ Analysis API: ✅ Success
 
 The system delivers efficient resume processing and candidate matching while providing valuable insights to recruiters.
 
-## Tech Stack 🧰
+## Tech Stack ⚙️
 
 <table>
   <tr>
@@ -340,7 +340,7 @@ Our AI-Powered Talent Acquisition System delivers measurable improvements to the
 - **Retention**: Increases first-year retention by 42% through better role fit assessment
 - **Diversity**: Enhances workforce diversity metrics by 53% through bias mitigation
 
-## Run the Project ▶️
+## How to Run ▶️
 1. Download libaries
 ```
 pip install -r ../backend/requirements.txt
