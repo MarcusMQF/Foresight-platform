@@ -12,17 +12,17 @@
   <img src="https://img.shields.io/badge/Chart.js-FF6384?style=for-the-badge&logo=chart.js&logoColor=white" alt="Chart.js"/>
 </div>
 
-## Demo
+## Demo 📺
 https://github.com/user-attachments/assets/687bba82-e8bf-4611-bbe5-df9177bb391c
 
-## About
+## About ✨
 
 **AI-Powered Talent Acquisition System** is an innovative platform designed to **transform the hiring process through advanced AI models and machine learning techniques**. Built for modern HR departments and recruitment agencies, it delivers a **comprehensive solution for sourcing, screening, and selecting the best candidates** with unprecedented efficiency and accuracy. Our system leverages **sophisticated natural language processing, intelligent resume parsing, semantic matching algorithms, and data-driven predictive analytics** to solve the critical challenges of identifying ideal talent in competitive markets while eliminating unconscious bias and dramatically reducing time-to-hire metrics.
 
 - **Key Features:** AI-driven candidate matching, automated resume screening, intelligent interview scheduling, bias detection and mitigation, customizable assessment workflows, analytics dashboard
 - **Purpose:** Streamline recruitment processes, identify best-fit candidates, reduce time-to-hire, eliminate unconscious bias
 
-## Features
+## Features 🚀
 
 - **Smart Resume Parsing** - Extract candidate information with 85% accuracy for names and emails
 - **Keyword Matching** - Find candidates based on matching job requirements and skills
@@ -32,7 +32,7 @@ https://github.com/user-attachments/assets/687bba82-e8bf-4611-bbe5-df9177bb391c
 - **Organized Candidate Management** - Auto-categorize candidates into folders by batch
 - **Analytics Dashboard** - Track recruitment metrics and visualize candidate pipeline
 
-## AI Matching System
+## AI Matching System 🤖
 
 Our talent acquisition platform implements a streamlined candidate processing pipeline:
 
@@ -54,7 +54,7 @@ Our talent acquisition platform implements a streamlined candidate processing pi
    - Education background evaluation
    - Customizable metric weighting based on company priorities
 
-## Solution Architecture  
+## Solution Architecture 🛠️
 
 ### User Flow
 
@@ -130,7 +130,7 @@ graph TD
     B2 --> D2
 ```
 
-## Performance Metrics
+## Performance Metrics 📈
 
 Our system demonstrates effective performance across key recruitment metrics:
 
@@ -252,7 +252,7 @@ Analysis API: ✅ Success
 
 The system delivers efficient resume processing and candidate matching while providing valuable insights to recruiters.
 
-## Tech Stack
+## Tech Stack 🧰
 
 <table>
   <tr>
@@ -319,7 +319,7 @@ The system delivers efficient resume processing and candidate matching while pro
   </tr>
 </table>
 
-## Future Roadmap
+## Future Roadmap 🔮
 
 Our development roadmap focuses on enhancing the platform's capabilities:
 
@@ -330,7 +330,7 @@ Our development roadmap focuses on enhancing the platform's capabilities:
 - **Mobile Experience**: Responsive design for on-the-go recruitment management
 - **Integration Ecosystem**: Connect with existing HR systems for seamless workflow
 
-## Impact
+## Impact 🔮
 
 Our AI-Powered Talent Acquisition System delivers measurable improvements to the recruitment process:
 
@@ -340,10 +340,12 @@ Our AI-Powered Talent Acquisition System delivers measurable improvements to the
 - **Retention**: Increases first-year retention by 42% through better role fit assessment
 - **Diversity**: Enhances workforce diversity metrics by 53% through bias mitigation
 
-## Run the Project
+## Run the Project ▶️
 1. Download libaries
-``` pip install -r ../backend/requirements.txt
 ```
+pip install -r ../backend/requirements.txt
+```
+
 2. Run the server
 ```
 cd backend ; python -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
