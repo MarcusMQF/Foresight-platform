@@ -12,6 +12,9 @@
   <img src="https://img.shields.io/badge/Chart.js-FF6384?style=for-the-badge&logo=chart.js&logoColor=white" alt="Chart.js"/>
 </div>
 
+## Demo
+https://github.com/user-attachments/assets/687bba82-e8bf-4611-bbe5-df9177bb391c
+
 ## About
 
 **AI-Powered Talent Acquisition System** is an innovative platform designed to **transform the hiring process through advanced AI models and machine learning techniques**. Built for modern HR departments and recruitment agencies, it delivers a **comprehensive solution for sourcing, screening, and selecting the best candidates** with unprecedented efficiency and accuracy. Our system leverages **sophisticated natural language processing, intelligent resume parsing, semantic matching algorithms, and data-driven predictive analytics** to solve the critical challenges of identifying ideal talent in competitive markets while eliminating unconscious bias and dramatically reducing time-to-hire metrics.
