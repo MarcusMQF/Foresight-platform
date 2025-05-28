@@ -7,14 +7,10 @@ from typing import Dict, List, Any, Optional, Tuple
 from supabase import create_client, Client
 from uuid import uuid4
 from datetime import datetime
+from dotenv import load_dotenv
 
-# Environment loading
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-    print("Loaded environment variables from .env file")
-except Exception as e:
-    print(f"Warning: Could not load .env file: {str(e)}")
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -35,7 +31,7 @@ class SupabaseStorageService:
         # Print credentials for debugging (only show masked key)
         print(f"Supabase URL: {self.supabase_url}")
         if self.supabase_key:
-            masked_key = self.supabase_key[:5] + "..." + self.supabase_key[-5:] if len(self.supabase_key) > 10 else "***masked***"
+            masked_key = self.supabase_key[:10] + "..." + self.supabase_key[-10:] if len(self.supabase_key) > 20 else "***masked***"
             print(f"Supabase Key: {masked_key}")
         else:
             print("Supabase Key: Not set")

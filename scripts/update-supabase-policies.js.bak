@@ -17,23 +17,16 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Get Supabase credentials from environment variables
 const supabaseUrl = process.env.SUPABASE_URL || 'https://xqrlgqwmmmjsivzrpfsm.supabase.co';
 const supabaseAnonKey = process.env.SUPABASE_KEY || '';
 
 if (!supabaseAnonKey) {
   console.error('Error: SUPABASE_KEY environment variable is not set');
-  console.error('Please set it in your .env file or run:');
-  console.error('SUPABASE_KEY=your_key node scripts/update-supabase-policies.js');
   process.exit(1);
 }
 
-// Only print the masked key for security
 console.log(`Using Supabase URL: ${supabaseUrl}`);
-const maskedKey = supabaseAnonKey.length > 10 
-  ? `${supabaseAnonKey.substring(0, 5)}...${supabaseAnonKey.substring(supabaseAnonKey.length - 5)}`
-  : '***masked***';
-console.log(`Using Supabase Key: ${maskedKey}`);
+console.log(`Using Supabase Key: ${supabaseAnonKey.substring(0, 10)}...${supabaseAnonKey.substring(supabaseAnonKey.length - 10)}`);
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 

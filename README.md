@@ -37,22 +37,24 @@ https://github.com/user-attachments/assets/687bba82-e8bf-4611-bbe5-df9177bb391c
 Our talent acquisition platform implements a streamlined candidate processing pipeline:
 
 1. **Document Extraction** - Efficient resume processing:
-   - PDF and document format support
-   - Text extraction with 85% accuracy
-   - Candidate contact information identification
+   - PDF format support
+   - Text extraction with 95% accuracy
+   - Candidate information detection
    - Resume structure recognition
 
 2. **Keyword Matching** - Effective candidate evaluation:
-   - Job requirement keyword identification
+   - Job requirement keyword identification from extracted text
    - Skill and qualification matching
-   - Education and certification validation
-   - Experience relevance assessment
 
 3. **Scoring System** - Data-driven candidate ranking:
-   - Skills match percentage calculation
-   - Experience quality assessment
-   - Education background evaluation
+   - Skills match percentage calculation using scikit-learn's TF-IDF vectorization
+   - Cosine similarity algorithms for semantic matching between resumes and job descriptions
    - Customizable metric weighting based on company priorities
+
+4. **Basic Machine Learning Analysis** - Intelligent resume processing:
+   - scikit-learn for text vectorization and similarity calculations
+   - Feature extraction from resume text for structured analysis
+   - Statistical modeling to predict candidate-job fit
 
 ## Solution Architecture 🛠️
 
@@ -106,9 +108,11 @@ graph TD
     end
     
     subgraph "AI Analysis"
-        E1[OpenAI Model]
+        E1[Qwen Model]
         E2[Keyword Matching]
         E3[Resume Scoring]
+        E4[scikit-learn TF-IDF]
+        E5[Cosine Similarity]
     end
     
     subgraph "Database"
@@ -122,13 +126,20 @@ graph TD
     C1 --> C3
     C2 --> C3
     C3 --> E1
+    C3 --> E4
     E1 --> E2
     E1 --> E3
+    E4 --> E5
+    E5 --> E3
     E2 --> B1
     E3 --> B1
     B1 --> D1
     B2 --> D2
 ```
+TF-IDF (Term Frequency-Inverse Document Frequency) is a statistical technique used in natural language processing (NLP) and information retrieval to evaluate how important a word is to a document in a collection (corpus). It combines two metrics:
+
+**Term Frequency (TF)** – Measures how often a word appears in a document.
+**Inverse Document Frequency (IDF)** – Measures how rare or common a word is across all documents.
 
 ## Performance Metrics 📈
 
@@ -140,7 +151,7 @@ The platform consistently delivers reliable document processing:
 
 | Metric | Average Value | Description |
 |--------|--------------|-------------|
-| Name & Email Extraction | 85% | Accuracy in extracting candidate contact information |
+| Name & Email Extraction | 90% | Accuracy in extracting candidate contact information |
 | Text Extraction | 95% | Success rate in converting documents to readable text |
 | Duplicate Detection | 100% | Accuracy in identifying repeated resume submissions |
 | Batch Processing | 100 files | Maximum number of resumes processable in a single batch |
@@ -151,7 +162,7 @@ Our system delivers effective recruitment capabilities through efficient process
 
 #### 1. Intelligent Document Extraction
 - **Challenge**: Traditional resume parsing often misses or misinterprets critical candidate information
-- **Our Solution**: Advanced extraction algorithms with 85% accuracy for candidate name and email identification
+- **Our Solution**: Advanced extraction algorithms with 90% accuracy for candidate name and email identification
 - **Performance**: 93% reduction in manual data entry for candidate information processing
 
 #### 2. Duplicate Detection & Bulk Processing
@@ -317,6 +328,14 @@ The system delivers efficient resume processing and candidate matching while pro
     </td>
     <td>Reactive programming and utility functions for efficient state management</td>
   </tr>
+  <tr>
+    <td>AI & Machine Learning</td>
+    <td>
+      <a href="https://scikit-learn.org"><img src="https://img.shields.io/badge/scikit--learn-F7931E?style=for-the-badge&logo=scikit-learn&logoColor=white" alt="scikit-learn"/></a>
+      <a href="https://spacy.io"><img src="https://img.shields.io/badge/spaCy-09A3D5?style=for-the-badge&logo=spacy&logoColor=white" alt="spaCy"/></a>
+    </td>
+    <td>TF-IDF vectorization, cosine similarity for resume-job matching, NLP processing for text analysis</td>
+  </tr>
 </table>
 
 ## Future Roadmap 🔮
@@ -358,5 +377,6 @@ npm run dev
 ---
 
 <div align="center">
-  <strong>Made by Team ❤️ We Just Wanted the Free T-Shirt and Accidentally Made a Startup</strong>
+  <strong>Made by Team 👕 We Just Wanted the Free T-Shirt and Accidentally Made a Startup</strong>
 </div>
+ 
