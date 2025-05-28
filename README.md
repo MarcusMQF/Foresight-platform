@@ -12,6 +12,9 @@
   <img src="https://img.shields.io/badge/Chart.js-FF6384?style=for-the-badge&logo=chart.js&logoColor=white" alt="Chart.js"/>
 </div>
 
+## Demo
+https://github.com/user-attachments/assets/687bba82-e8bf-4611-bbe5-df9177bb391c
+
 ## About
 
 **AI-Powered Talent Acquisition System** is an innovative platform designed to **transform the hiring process through advanced AI models and machine learning techniques**. Built for modern HR departments and recruitment agencies, it delivers a **comprehensive solution for sourcing, screening, and selecting the best candidates** with unprecedented efficiency and accuracy. Our system leverages **sophisticated natural language processing, intelligent resume parsing, semantic matching algorithms, and data-driven predictive analytics** to solve the critical challenges of identifying ideal talent in competitive markets while eliminating unconscious bias and dramatically reducing time-to-hire metrics.
@@ -154,7 +157,7 @@ Our system delivers effective recruitment capabilities through efficient process
 #### 2. Duplicate Detection & Bulk Processing
 - **Challenge**: Managing large volumes of applications with potential duplicates from human error
 - **Our Solution**: Automated duplicate detection system prevents redundant candidate reviews
-- **Performance**: Process up to 500 resumes simultaneously with batch upload features
+- **Performance**: Process up to 100 resumes simultaneously with batch upload features
 
 #### 3. Organized Candidate Management
 - **Challenge**: Disorganized candidate pools make evaluation and comparison difficult
@@ -187,8 +190,8 @@ Text preview:
 --------------------------------------------------------------------------------
      MARCUS MAH QING FUNG
 
-         Bachelor Degree of Software Engineering
-             LinkedIn  •  Github  •  marcusmah6969@gmail.com  •  +60 17-737 1286
+   Bachelor Degree of Software Engineering
+ LinkedIn  •  Github  •  marcusmah6969@gmail.com  •  +60 17-737 1286
 
  EDUCATION
 
@@ -197,7 +200,7 @@ Text preview:
 ```
 
 ```=== Testing Resume Analysis API ===
-Sending request to http://localhost:8001/api/analyze
+Sending request to http://localhost:api/analyze
   - Resume: Marcus_Resume.pdf
   - Job description length: 2642 characters
 ✅ Success! Analysis completed. Status code: 200
@@ -206,7 +209,6 @@ Candidate Information:
   - Name: MARCUS MAH QING FUNG
   - Email: marcusmah6969@gmail.com
   - Match score: 81.5
-  - Extraction method: pdfminer
 
 Aspect Scores:
   - skills: 100
@@ -280,7 +282,6 @@ The system delivers efficient resume processing and candidate matching while pro
     <td>Database & Backend</td>
     <td>
       <a href="https://supabase.com"><img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase"/></a>
-      <a href="https://axios-http.com"><img src="https://img.shields.io/badge/Axios-5A29E4?style=for-the-badge&logo=axios&logoColor=white" alt="Axios"/></a>
     </td>
     <td>Database, authentication, and API communication for candidate data management</td>
   </tr>
@@ -322,12 +323,12 @@ The system delivers efficient resume processing and candidate matching while pro
 
 Our development roadmap focuses on enhancing the platform's capabilities:
 
-- **Advanced Resume Analysis** - Implement more precise resume analysis with machine learning and fine-tuning
-- **Language Support** - Address language barriers with translation capabilities for international recruitment
-- **Interactive Chatbot Agent** - Develop customizable AI chatbot agents for initial candidate screening
-- **Email with AI** - AI tools for writing personalized emails to notify qualified candidates for next phases
-- **Mobile Experience** - Responsive design for on-the-go recruitment management
-- **Integration Ecosystem** - Connect with existing HR systems for seamless workflow
+- **Advanced Resume Analysis**: Implement more precise resume analysis with machine learning and fine-tuning
+- **Language Support**: Address language barriers with translation capabilities for international recruitment
+- **Interactive Chatbot Agent**: Develop customizable AI chatbot agents for initial candidate screening
+- **Email with AI**: AI tools for writing personalized emails to notify qualified candidates for next phases
+- **Mobile Experience**: Responsive design for on-the-go recruitment management
+- **Integration Ecosystem**: Connect with existing HR systems for seamless workflow
 
 ## Impact
 
@@ -338,6 +339,19 @@ Our AI-Powered Talent Acquisition System delivers measurable improvements to the
 - **Quality of Hire**: Improves performance ratings of new hires by 37% through better matching
 - **Retention**: Increases first-year retention by 42% through better role fit assessment
 - **Diversity**: Enhances workforce diversity metrics by 53% through bias mitigation
+
+## Run the Project
+1. Download libaries
+``` pip install -r ../backend/requirements.txt
+```
+2. Run the server
+```
+cd backend ; python -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+```
+3. Run the application
+```
+npm run dev
+```
 
 ---
 
