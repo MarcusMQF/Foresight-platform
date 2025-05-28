@@ -180,7 +180,7 @@ The following demonstrates our test flow for text extraction, NLP processing, an
 
 ```
 === Testing PDF Extraction API ===
-Sending request to http://localhost:8001/api/test-extraction
+Sending request to http://localhost:/api/test-extraction
 ✅ Success! Extraction completed. Status code: 200
   - Text length: 4505
   - Extraction method: pdfminer
@@ -200,7 +200,7 @@ Text preview:
 ```
 
 ```=== Testing Resume Analysis API ===
-Sending request to http://localhost:api/analyze
+Sending request to http://localhost:/api/analyze
   - Resume: Marcus_Resume.pdf
   - Job description length: 2642 characters
 ✅ Success! Analysis completed. Status code: 200
@@ -354,10 +354,9 @@ cd backend ; python -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 ```
 npm run dev
 ```
-
+> Note: Create a .env file for your database configuration inside backend folder
 ---
 
 <div align="center">
   <strong>Made by Team ❤️ We Just Wanted the Free T-Shirt and Accidentally Made a Startup</strong>
 </div>
-

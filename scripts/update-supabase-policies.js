@@ -8,13 +8,25 @@ import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 // Get the directory name
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const supabaseUrl = 'https://xqrlgqwmmmjsivzrpfsm.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxcmxncXdtbW1qc2l2enJwZnNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY5Njg3NDIsImV4cCI6MjA2MjU0NDc0Mn0.rpnp4cQHshlrvk8NaHhDCXmg-zW9EXdqorM_63QC_Ms';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://xqrlgqwmmmjsivzrpfsm.supabase.co';
+const supabaseAnonKey = process.env.SUPABASE_KEY || '';
+
+if (!supabaseAnonKey) {
+  console.error('Error: SUPABASE_KEY environment variable is not set');
+  process.exit(1);
+}
+
+console.log(`Using Supabase URL: ${supabaseUrl}`);
+console.log(`Using Supabase Key: ${supabaseAnonKey.substring(0, 10)}...${supabaseAnonKey.substring(supabaseAnonKey.length - 10)}`);
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 

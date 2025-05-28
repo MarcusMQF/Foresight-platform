@@ -7,6 +7,10 @@ from typing import Dict, List, Any, Optional, Tuple
 from supabase import create_client, Client
 from uuid import uuid4
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -20,13 +24,17 @@ class SupabaseStorageService:
     
     def __init__(self):
         """Initialize the Supabase client"""
-        # Set Supabase URL and key directly
-        self.supabase_url = "[SUPABASE_URL_REMOVED]"
-        self.supabase_key = "[SUPABASE_KEY_REMOVED]"
+        # Get Supabase URL and key from environment variables
+        self.supabase_url = os.getenv("SUPABASE_URL", "[SUPABASE_URL_REMOVED]")
+        self.supabase_key = os.getenv("SUPABASE_KEY", "")
         
-        # Print credentials for debugging
+        # Print credentials for debugging (only show masked key)
         print(f"Supabase URL: {self.supabase_url}")
-        print(f"Supabase Key: {self.supabase_key[:10]}...{self.supabase_key[-10:]}")
+        if self.supabase_key:
+            masked_key = self.supabase_key[:10] + "..." + self.supabase_key[-10:] if len(self.supabase_key) > 20 else "***masked***"
+            print(f"Supabase Key: {masked_key}")
+        else:
+            print("Supabase Key: Not set")
         
         self.supabase_client = None
         self._use_mock = False  # Default to not using mock
