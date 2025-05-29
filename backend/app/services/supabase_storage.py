@@ -29,8 +29,8 @@ class SupabaseStorageService:
     def __init__(self):
         """Initialize the Supabase client"""
         # Get Supabase URL and key from environment variables
-        self.supabase_url = os.getenv("SUPABASE_URL", "https://xqrlgqwmmmjsivzrpfsm.supabase.co")
-        self.supabase_key = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxcmxncXdtbW1qc2l2enJwZnNtIiwicm9sZSI6ImFub24iLCJpYVQiOjE3NDY5Njg3NDIsImV4cCI6MjA2MjU0NDc0Mn0.rpnp4cQHshlrvk8NaHhDCXmg-zW9EXdqorM_63QC_Ms")
+        self.supabase_url = os.getenv("SUPABASE_URL")
+        self.supabase_key = os.getenv("SUPABASE_KEY")
         
         # Print credentials for debugging (only show masked key)
         print(f"Supabase URL: {self.supabase_url}")
