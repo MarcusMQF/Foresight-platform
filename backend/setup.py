@@ -1,6 +1,5 @@
 import subprocess
 import sys
-***REMOVED***
 
 def install_dependencies():
     print("Installing dependencies...")

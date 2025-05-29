@@ -1,8 +1,8 @@
-***REMOVED***
 import tempfile
 import logging
 import subprocess
 import platform
+import os
 from typing import Optional, Dict, Any, Tuple
 from pdfminer.high_level import extract_text
 from pdfminer.pdfparser import PDFSyntaxError

@@ -1,4 +1,3 @@
-***REMOVED***
 import sys
 from app.services.enhanced_text_extraction import EnhancedTextExtractionService
 

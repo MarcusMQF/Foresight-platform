@@ -1,0 +1,8 @@
+# Exact Supabase Key (replace with your actual key)
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxcmxncXdtbW1qc2l2enJwZnNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY5Njg3NDIsImV4cCI6MjA2MjU0NDc0Mn0.rpnp4cQHshlrvk8NaHhDCXmg-zW9EXdqorM_63QC_Ms"==>"[SUPABASE_KEY_REMOVED]"
+
+# Also match single quotes (if used)
+'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxcmxncXdtbW1qc2l2enJwZnNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY5Njg3NDIsImV4cCI6MjA2MjU0NDc0Mn0.rpnp4cQHshlrvk8NaHhDCXmg-zW9EXdqorM_63QC_Ms'=='[SUPABASE_KEY_REMOVED]'
+
+# Optional: Also remove the URL (if sensitive)
+"https://xqrlgqwmmmjsivzrpfsm.supabase.co"==>"[SUPABASE_URL_REMOVED]"

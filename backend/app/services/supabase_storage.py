@@ -1,4 +1,4 @@
-***REMOVED***
+import os
 import logging
 import json
 import re
@@ -29,8 +29,8 @@ class SupabaseStorageService:
     def __init__(self):
         """Initialize the Supabase client"""
         # Get Supabase URL and key from environment variables
-        self.supabase_url = os.getenv("SUPABASE_URL", "[SUPABASE_URL_REMOVED]")
-        self.supabase_key = os.getenv("SUPABASE_KEY", "")
+        self.supabase_url = os.getenv("SUPABASE_URL", "https://xqrlgqwmmmjsivzrpfsm.supabase.co")
+        self.supabase_key = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxcmxncXdtbW1qc2l2enJwZnNtIiwicm9sZSI6ImFub24iLCJpYVQiOjE3NDY5Njg3NDIsImV4cCI6MjA2MjU0NDc0Mn0.rpnp4cQHshlrvk8NaHhDCXmg-zW9EXdqorM_63QC_Ms")
         
         # Print credentials for debugging (only show masked key)
         print(f"Supabase URL: {self.supabase_url}")
@@ -62,272 +62,162 @@ class SupabaseStorageService:
         
         print(f"Using mock implementation: {self._use_mock}")
     
-    def is_connected(self) -> bool:
-        """Check if connected to Supabase"""
-        connected = self.supabase_client is not None and not self._use_mock
-        print(f"Supabase connection status: {connected}")
-        return connected
-    
-    def _is_valid_uuid(self, val: str) -> bool:
-        """Check if a string is a valid UUID"""
-        try:
-            uuid.UUID(str(val))
-            return True
-        except ValueError:
-            return False
-    
-    # Mock data storage for when Supabase isn't available
-    _mock_job_descriptions = {}
-    _mock_analysis_results = {}
-    
-    async def store_job_description(self, description: str, folder_id: str, user_id: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    async def store_job_description(self, job_description: str, folder_id: str, user_id: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
         """
-        Store a job description in Supabase
+        Store job description in Supabase
         
         Args:
-            description: Job description text
-            folder_id: Folder ID
-            user_id: User ID
+            job_description: Job description text
+            folder_id: Folder ID for organization
+            user_id: User ID for ownership
             
         Returns:
-            Tuple containing:
-            - Success flag (bool)
-            - Message (str)
-            - Data (Dict) or None if operation failed
+            Tuple of (success, message, data)
         """
-        # If folder_id is not a valid UUID, generate one
-        if not self._is_valid_uuid(folder_id):
-            logger.warning(f"Invalid UUID format for folder_id: {folder_id}, using a generated UUID")
-            folder_id = str(uuid4())
+        logger.info(f'Storing job description for folder: {folder_id}')
         
-        if self._use_mock:
-            # Use mock implementation
-            try:
+        try:
+            if self._use_mock:
+                logger.info('Using mock implementation for storing job description')
+                # Generate a mock ID
                 job_id = str(uuid4())
-                timestamp = datetime.now().isoformat()
+                return True, "Job description stored successfully (mock)", {"id": job_id}
+            
+            # First check if a job description already exists for this folder
+            job_desc_query = self.supabase_client.table('job_descriptions').select('*').eq('folder_id', folder_id).execute()
+            
+            if job_desc_query.data and len(job_desc_query.data) > 0:
+                # Update existing job description
+                job_id = job_desc_query.data[0]['id']
+                update_result = self.supabase_client.table('job_descriptions').update({
+                    'description': job_description,
+                    'updated_at': datetime.now().isoformat()
+                }).eq('id', job_id).execute()
                 
+                return True, "Job description updated successfully", {"id": job_id}
+            else:
+                # Create new job description
                 job_desc = {
-                    "id": job_id,
-                    "description": description,
-                    "folder_id": folder_id,
-                    "userId": user_id,
-                    "created_at": timestamp
+                    'id': str(uuid4()),
+                    'folder_id': folder_id,
+                    'user_id': user_id,
+                    'description': job_description,
+                    'created_at': datetime.now().isoformat(),
+                    'updated_at': datetime.now().isoformat()
                 }
                 
-                # Store in memory
-                if folder_id not in self._mock_job_descriptions:
-                    self._mock_job_descriptions[folder_id] = []
+                insert_result = self.supabase_client.table('job_descriptions').insert(job_desc).execute()
                 
-                self._mock_job_descriptions[folder_id].append(job_desc)
+                return True, "Job description created successfully", job_desc
                 
-                logger.info(f'Mock storage: Job description stored with ID {job_id}')
-                return True, 'Job description stored successfully', job_desc
-            except Exception as e:
-                logger.error(f'Mock storage error: {str(e)}')
-                return False, f'Error storing job description: {str(e)}', None
-        
-        try:
-            # Add timestamp
-            timestamp = datetime.now().isoformat()
-            
-            # Create data object
-            data = {
-                'description': description,
-                'folder_id': folder_id,
-                'userId': user_id,
-                'created_at': timestamp
-            }
-            
-            # Insert into Supabase
-            result = await self.supabase_client.table('job_descriptions').insert(data).execute()
-            
-            if result.data and len(result.data) > 0:
-                logger.info(f'Job description stored with ID {result.data[0]["id"]}')
-                return True, 'Job description stored successfully', result.data[0]
-            else:
-                logger.error('No data returned from Supabase after storing job description')
-                return False, 'No data returned from database', None
         except Exception as e:
-            logger.error(f'Error storing job description in Supabase: {str(e)}')
-            # If we encounter an error, switch to mock mode for this request
-            self._use_mock = True
-            logger.warning('Temporarily switching to mock mode due to error')
-            return await self.store_job_description(description, folder_id, user_id)
-    
-    async def get_job_description(self, folder_id: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
-        """
-        Get the most recent job description for a folder
-        
-        Args:
-            folder_id: Folder ID
-            
-        Returns:
-            Tuple containing:
-            - Success flag (bool)
-            - Message (str)
-            - Job description data (Dict) or None if operation failed
-        """
-        # If folder_id is not a valid UUID and we're not in mock mode, use mock mode
-        if not self._is_valid_uuid(folder_id) and not self._use_mock:
-            logger.warning(f"Invalid UUID format for folder_id: {folder_id}, using mock mode")
-            return True, 'Using mock mode due to invalid UUID', {"id": str(uuid4()), "description": "Sample job description for testing.", "folder_id": folder_id, "created_at": datetime.now().isoformat()}
-        
-        if self._use_mock:
-            # Use mock implementation
-            try:
-                if folder_id in self._mock_job_descriptions and self._mock_job_descriptions[folder_id]:
-                    # Sort by created_at and get the most recent
-                    sorted_descriptions = sorted(
-                        self._mock_job_descriptions[folder_id], 
-                        key=lambda x: x.get("created_at", ""), 
-                        reverse=True
-                    )
-                    
-                    logger.info(f'Mock storage: Retrieved job description for folder {folder_id}')
-                    return True, 'Job description retrieved successfully', sorted_descriptions[0]
-                else:
-                    # Create a mock job description if none exists
-                    mock_job = {
-                        "id": str(uuid4()),
-                        "description": "This is a sample job description generated by the mock service.",
-                        "folder_id": folder_id,
-                        "userId": "mock_user",
-                        "created_at": datetime.now().isoformat()
-                    }
-                    
-                    if folder_id not in self._mock_job_descriptions:
-                        self._mock_job_descriptions[folder_id] = []
-                    
-                    self._mock_job_descriptions[folder_id].append(mock_job)
-                    
-                    logger.info(f'Mock storage: Created and retrieved mock job description for folder {folder_id}')
-                    return True, 'Mock job description generated', mock_job
-            except Exception as e:
-                logger.error(f'Mock storage error: {str(e)}')
-                return False, f'Error retrieving job description: {str(e)}', None
-        
-        if not self.is_connected():
-            return False, "Not connected to Supabase", None
-        
-        try:
-            result = self.supabase_client.table("job_descriptions").select("*").eq("folder_id", folder_id).execute()
-            
-            if result.data:
-                # Sort by created_at and get the most recent
-                sorted_data = sorted(result.data, key=lambda x: x.get("created_at", ""), reverse=True)
-                
-                logger.info(f'Retrieved job description for folder {folder_id}')
-                return True, 'Job description retrieved successfully', sorted_data[0]
-            else:
-                logger.info(f'No job description found for folder {folder_id}')
-                return False, 'No job description found for this folder', None
-        except Exception as e:
-            error_msg = f'Error retrieving job description: {str(e)}'
-            logger.error(error_msg)
-            
-            # Switch to mock mode for this request
-            logger.warning('Temporarily switching to mock mode due to error')
-            self._use_mock = True
-            return await self.get_job_description(folder_id)
-    
-    # Analysis Results Methods
+            logger.error(f'Error storing job description: {str(e)}')
+            return False, f"Error storing job description: {str(e)}", None
     
     async def store_analysis_result(self, 
                                   file_id: str, 
-                                  job_description_id: str, 
+                                  job_description_id: str,
                                   folder_id: str,
                                   user_id: str,
                                   analysis_result: Dict[str, Any]) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
         """
-        Store an analysis result in Supabase
+        Store analysis result in Supabase
         
         Args:
-            file_id: File ID
+            file_id: File ID or filename
             job_description_id: Job description ID
-            folder_id: Folder ID
-            user_id: User ID
+            folder_id: Folder ID for organization
+            user_id: User ID for ownership
             analysis_result: Analysis result data
             
         Returns:
-            Tuple containing:
-            - Success flag (bool)
-            - Message (str)
-            - Analysis result data (Dict) or None if operation failed
+            Tuple of (success, message, data)
         """
-        if self._use_mock:
-            # Use mock implementation
-            try:
-                result_id = str(uuid4())
-                timestamp = datetime.now().isoformat()
-                
-                # Create a data object
-                stored_result = {
-                    "id": result_id,
-                    "file_id": file_id,
-                    "job_description_id": job_description_id,
-                    "folder_id": folder_id,
-                    "userId": user_id,
-                    "match_score": analysis_result.get("score", 0),
-                    "strengths": analysis_result.get("matchedKeywords", []),
-                    "weaknesses": analysis_result.get("missingKeywords", []),
-                    "recommendations": analysis_result.get("recommendations", []),
-                    "aspect_scores": analysis_result.get("aspectScores", {}),
-                    "achievement_bonus": analysis_result.get("achievementBonus", 0),
-                    "created_at": timestamp,
-                    "filename": analysis_result.get("filename", "")
-                }
-                
-                # Store in memory
-                key = f"{folder_id}_{file_id}"
-                self._mock_analysis_results[key] = stored_result
-                
-                logger.info(f'Mock storage: Analysis result stored with ID {result_id}')
-                return True, 'Analysis result stored successfully', stored_result
-            except Exception as e:
-                logger.error(f'Mock storage error: {str(e)}')
-                return False, f'Error storing analysis result: {str(e)}', None
-        
-        if not self.is_connected():
-            return False, "Not connected to Supabase", None
+        logger.info(f'Storing analysis result for file: {file_id}')
         
         try:
-            # Check if an analysis result already exists for this file
-            existing = self.supabase_client.table("analysis_results").select("*").eq("file_id", file_id).execute()
+            if self._use_mock:
+                logger.info('Using mock implementation for storing analysis result')
+                # Generate a mock ID
+                result_id = str(uuid4())
+                return True, "Analysis result stored successfully (mock)", {"id": result_id}
             
-            # Extract the necessary data from the analysis result
-            data_to_store = {
-                "file_id": file_id,
-                "job_description_id": job_description_id,
-                "folder_id": folder_id,
-                "userId": user_id,
-                "match_score": analysis_result.get("score", 0),
-                "strengths": analysis_result.get("matchedKeywords", []),
-                "weaknesses": analysis_result.get("missingKeywords", []),
-                "recommendations": analysis_result.get("recommendations", []),
-                "aspect_scores": analysis_result.get("aspectScores", {}),
-                "achievement_bonus": analysis_result.get("achievementBonus", 0)
+            # Prepare analysis result data
+            result_data = {
+                'id': str(uuid4()),
+                'file_id': file_id,
+                'job_description_id': job_description_id,
+                'folder_id': folder_id,
+                'user_id': user_id,
+                'score': analysis_result.get('score', 0),
+                'metadata': json.dumps(analysis_result.get('metadata', {})),
+                'matched_keywords': json.dumps(analysis_result.get('matchedKeywords', [])),
+                'missing_keywords': json.dumps(analysis_result.get('missingKeywords', [])),
+                'aspect_scores': json.dumps(analysis_result.get('aspectScores', {})),
+                'achievement_bonus': analysis_result.get('achievementBonus', 0),
+                'recommendations': json.dumps(analysis_result.get('recommendations', [])),
+                'analysis_text': analysis_result.get('analysis', ''),
+                'candidate_info': json.dumps(analysis_result.get('candidateInfo', {})),
+                'created_at': datetime.now().isoformat(),
+                'updated_at': datetime.now().isoformat()
             }
             
-            if existing.data:
+            # First check if an analysis result already exists for this file and job description
+            query_result = self.supabase_client.table('analysis_results').select('*').eq('file_id', file_id).eq('job_description_id', job_description_id).execute()
+            
+            if query_result.data and len(query_result.data) > 0:
                 # Update existing analysis result
-                result_id = existing.data[0]["id"]
-                result = self.supabase_client.table("analysis_results").update(data_to_store).eq("id", result_id).execute()
+                existing_id = query_result.data[0]['id']
+                result_data['id'] = existing_id
                 
-                logger.info(f"Updated analysis result for file {file_id}")
-                return True, "Analysis result updated successfully", result.data[0]
+                update_result = self.supabase_client.table('analysis_results').update(result_data).eq('id', existing_id).execute()
+                
+                return True, "Analysis result updated successfully", result_data
             else:
                 # Create new analysis result
-                result_id = str(uuid4())
-                data_to_store["id"] = result_id
-                result = self.supabase_client.table("analysis_results").insert(data_to_store).execute()
+                insert_result = self.supabase_client.table('analysis_results').insert(result_data).execute()
                 
-                logger.info(f"Created new analysis result for file {file_id}")
-                return True, "Analysis result created successfully", result.data[0]
+                return True, "Analysis result created successfully", result_data
                 
         except Exception as e:
-            error_msg = f"Error storing analysis result: {str(e)}"
-            logger.error(error_msg)
-            return False, error_msg, None
+            logger.error(f'Error storing analysis result: {str(e)}')
+            return False, f"Error storing analysis result: {str(e)}", None
+    
+    async def get_job_description(self, folder_id: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+        """
+        Get job description from Supabase
+        
+        Args:
+            folder_id: Folder ID
+            
+        Returns:
+            Tuple of (success, message, data)
+        """
+        logger.info(f'Getting job description for folder: {folder_id}')
+        
+        try:
+            if self._use_mock:
+                logger.info('Using mock implementation for getting job description')
+                # Return mock job description
+                return True, "Job description retrieved successfully (mock)", {
+                    "id": str(uuid4()),
+                    "folder_id": folder_id,
+                    "description": "Mock job description for testing",
+                    "created_at": datetime.now().isoformat(),
+                    "updated_at": datetime.now().isoformat()
+                }
+            
+            # Query job description
+            query_result = self.supabase_client.table('job_descriptions').select('*').eq('folder_id', folder_id).execute()
+            
+            if query_result.data and len(query_result.data) > 0:
+                return True, "Job description retrieved successfully", query_result.data[0]
+            else:
+                return False, "No job description found for this folder", None
+                
+        except Exception as e:
+            logger.error(f'Error getting job description: {str(e)}')
+            return False, f"Error getting job description: {str(e)}", None
     
     async def get_analysis_results(self, folder_id: str) -> Tuple[bool, str, List[Dict[str, Any]]]:
         """
@@ -337,45 +227,45 @@ class SupabaseStorageService:
             folder_id: Folder ID
             
         Returns:
-            Tuple containing:
-            - Success flag (bool)
-            - Message (str)
-            - List of analysis results (List[Dict]) or empty list if operation failed
+            Tuple of (success, message, data)
         """
-        if self._use_mock:
-            # Use mock implementation
-            try:
-                # Filter results for this folder
-                folder_results = [
-                    result for key, result in self._mock_analysis_results.items() 
-                    if key.startswith(f"{folder_id}_")
-                ]
-                
-                logger.info(f'Mock storage: Retrieved {len(folder_results)} analysis results for folder {folder_id}')
-                return True, f'Retrieved {len(folder_results)} analysis results', folder_results
-            except Exception as e:
-                logger.error(f'Mock storage error: {str(e)}')
-                return False, f'Error retrieving analysis results: {str(e)}', []
-        
-        if not self.is_connected():
-            return False, "Not connected to Supabase", []
+        logger.info(f'Getting analysis results for folder: {folder_id}')
         
         try:
-            # Join with files table to get file names
-            result = self.supabase_client.table("analysis_results").select(
-                "*, files!inner(name, size, type, created_at)"
-            ).eq("folder_id", folder_id).execute()
+            if self._use_mock:
+                logger.info('Using mock implementation for getting analysis results')
+                # Return mock analysis results
+                return True, "Analysis results retrieved successfully (mock)", [{
+                    "id": str(uuid4()),
+                    "folder_id": folder_id,
+                    "score": 75,
+                    "created_at": datetime.now().isoformat(),
+                    "updated_at": datetime.now().isoformat()
+                }]
             
-            if result.data:
-                logger.info(f'Retrieved {len(result.data)} analysis results for folder {folder_id}')
-                return True, f'Retrieved {len(result.data)} analysis results', result.data
+            # Query analysis results
+            query_result = self.supabase_client.table('analysis_results').select('*').eq('folder_id', folder_id).execute()
+            
+            if query_result.data and len(query_result.data) > 0:
+                # Parse JSON fields
+                results = []
+                for result in query_result.data:
+                    parsed_result = result.copy()
+                    for field in ['metadata', 'matched_keywords', 'missing_keywords', 'aspect_scores', 'recommendations', 'candidate_info']:
+                        if field in parsed_result and parsed_result[field]:
+                            try:
+                                parsed_result[field] = json.loads(parsed_result[field])
+                            except:
+                                parsed_result[field] = {}
+                    results.append(parsed_result)
+                
+                return True, f"Retrieved {len(results)} analysis results", results
             else:
-                logger.info(f'No analysis results found for folder {folder_id}')
-                return True, 'No analysis results found for this folder', []
+                return True, "No analysis results found for this folder", []
+                
         except Exception as e:
-            error_msg = f'Error retrieving analysis results: {str(e)}'
-            logger.error(error_msg)
-            return False, error_msg, []
+            logger.error(f'Error getting analysis results: {str(e)}')
+            return False, f"Error getting analysis results: {str(e)}", []
     
     async def get_analysis_result(self, result_id: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
         """
@@ -385,44 +275,41 @@ class SupabaseStorageService:
             result_id: Analysis result ID
             
         Returns:
-            Tuple containing:
-            - Success flag (bool)
-            - Message (str)
-            - Analysis result data (Dict) or None if operation failed
+            Tuple of (success, message, data)
         """
-        if self._use_mock:
-            # Use mock implementation
-            try:
-                # Search in all results
-                for result in self._mock_analysis_results.values():
-                    if result.get("id") == result_id:
-                        logger.info(f'Mock storage: Retrieved analysis result {result_id}')
-                        return True, 'Analysis result retrieved successfully', result
-                
-                logger.info(f'Mock storage: Analysis result {result_id} not found')
-                return False, 'Analysis result not found', None
-            except Exception as e:
-                logger.error(f'Mock storage error: {str(e)}')
-                return False, f'Error retrieving analysis result: {str(e)}', None
-        
-        if not self.is_connected():
-            return False, "Not connected to Supabase", None
+        logger.info(f'Getting analysis result: {result_id}')
         
         try:
-            result = self.supabase_client.table("analysis_results").select(
-                "*, files!inner(name, size, type, created_at)"
-            ).eq("id", result_id).execute()
+            if self._use_mock:
+                logger.info('Using mock implementation for getting analysis result')
+                # Return mock analysis result
+                return True, "Analysis result retrieved successfully (mock)", {
+                    "id": result_id,
+                    "score": 75,
+                    "created_at": datetime.now().isoformat(),
+                    "updated_at": datetime.now().isoformat()
+                }
             
-            if result.data:
-                logger.info(f'Retrieved analysis result {result_id}')
-                return True, 'Analysis result retrieved successfully', result.data[0]
+            # Query analysis result
+            query_result = self.supabase_client.table('analysis_results').select('*').eq('id', result_id).execute()
+            
+            if query_result.data and len(query_result.data) > 0:
+                # Parse JSON fields
+                result = query_result.data[0].copy()
+                for field in ['metadata', 'matched_keywords', 'missing_keywords', 'aspect_scores', 'recommendations', 'candidate_info']:
+                    if field in result and result[field]:
+                        try:
+                            result[field] = json.loads(result[field])
+                        except:
+                            result[field] = {}
+                
+                return True, "Analysis result retrieved successfully", result
             else:
-                logger.info(f'Analysis result {result_id} not found')
-                return False, 'Analysis result not found', None
+                return False, "No analysis result found with this ID", None
+                
         except Exception as e:
-            error_msg = f'Error retrieving analysis result: {str(e)}'
-            logger.error(error_msg)
-            return False, error_msg, None
+            logger.error(f'Error getting analysis result: {str(e)}')
+            return False, f"Error getting analysis result: {str(e)}", None
     
     async def delete_analysis_result(self, result_id: str) -> Tuple[bool, str]:
         """
@@ -432,35 +319,20 @@ class SupabaseStorageService:
             result_id: Analysis result ID
             
         Returns:
-            Tuple containing:
-            - Success flag (bool)
-            - Message (str)
+            Tuple of (success, message)
         """
-        if self._use_mock:
-            # Use mock implementation
-            try:
-                # Find and remove the result
-                for key, result in list(self._mock_analysis_results.items()):
-                    if result.get("id") == result_id:
-                        del self._mock_analysis_results[key]
-                        logger.info(f'Mock storage: Deleted analysis result {result_id}')
-                        return True, 'Analysis result deleted successfully'
-                
-                logger.info(f'Mock storage: Analysis result {result_id} not found for deletion')
-                return False, 'Analysis result not found'
-            except Exception as e:
-                logger.error(f'Mock storage error: {str(e)}')
-                return False, f'Error deleting analysis result: {str(e)}'
-        
-        if not self.is_connected():
-            return False, "Not connected to Supabase"
+        logger.info(f'Deleting analysis result: {result_id}')
         
         try:
-            self.supabase_client.table("analysis_results").delete().eq("id", result_id).execute()
+            if self._use_mock:
+                logger.info('Using mock implementation for deleting analysis result')
+                return True, "Analysis result deleted successfully (mock)"
             
-            logger.info(f"Deleted analysis result {result_id}")
+            # Delete analysis result
+            delete_result = self.supabase_client.table('analysis_results').delete().eq('id', result_id).execute()
+            
             return True, "Analysis result deleted successfully"
+                
         except Exception as e:
-            error_msg = f"Error deleting analysis result: {str(e)}"
-            logger.error(error_msg)
-            return False, error_msg 
+            logger.error(f'Error deleting analysis result: {str(e)}')
+            return False, f"Error deleting analysis result: {str(e)}"

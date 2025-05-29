@@ -12,7 +12,6 @@ Options:
   --weights-file  Path to a JSON file containing custom aspect weights
 """
 
-***REMOVED***
 import sys
 import json
 import argparse

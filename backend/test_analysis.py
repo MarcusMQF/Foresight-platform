@@ -1,4 +1,3 @@
-***REMOVED***
 import sys
 import argparse
 from app.services.text_extraction import TextExtractionService

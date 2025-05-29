@@ -5,9 +5,10 @@ from app.services.qwen_processing import QwenProcessingService
 from app.services.distilbert_extraction import DistilBERTExtractionService
 from app.services.scoring_service import ScoringService
 from app.services.supabase_storage import SupabaseStorageService
-***REMOVED***
 import json
 import time
+import os
+import logging
 
 router = APIRouter()
 text_extraction_service = EnhancedTextExtractionService()
@@ -15,6 +16,7 @@ qwen_service = QwenProcessingService()
 distilbert_service = DistilBERTExtractionService()
 scoring_service = ScoringService()
 storage_service = SupabaseStorageService()
+logger = logging.getLogger(__name__)
 
 @router.post("/analyze")
 async def analyze_resume(
@@ -137,44 +139,55 @@ async def analyze_resume(
         }
         
         if store_results:
-            # 4.1 Store or update job description
-            job_desc_success, job_desc_message, job_desc_data = await storage_service.store_job_description(
-                job_description, folder_id, user_id
-            )
-            
-            if not job_desc_success:
-                storage_result = {
-                    "success": False,
-                    "message": f"Failed to store job description: {job_desc_message}"
-                }
-            else:
-                # 4.2 Store analysis result
-                job_description_id = job_desc_data["id"]
-                
-                # If file_id is not provided, use the resume filename as a fallback identifier
-                file_identifier = file_id if file_id else resume.filename
-                
-                analysis_success, analysis_message, analysis_data = await storage_service.store_analysis_result(
-                    file_identifier, job_description_id, folder_id, user_id, analysis_result
+            try:
+                # 4.1 Store or update job description
+                job_desc_success, job_desc_message, job_desc_data = await storage_service.store_job_description(
+                    job_description, folder_id, user_id
                 )
                 
-                if analysis_success:
-                    storage_result = {
-                        "success": True,
-                        "message": analysis_message,
-                        "result_id": analysis_data["id"] if analysis_data else None
-                    }
-                else:
+                if not job_desc_success:
                     storage_result = {
                         "success": False,
-                        "message": f"Failed to store analysis result: {analysis_message}"
+                        "message": f"Failed to store job description: {job_desc_message}"
                     }
+                else:
+                    # 4.2 Store analysis result
+                    job_description_id = job_desc_data["id"]
+                    
+                    # If file_id is not provided, use the resume filename as a fallback identifier
+                    file_identifier = file_id if file_id else resume.filename
+                    
+                    analysis_success, analysis_message, analysis_data = await storage_service.store_analysis_result(
+                        file_identifier, job_description_id, folder_id, user_id, analysis_result
+                    )
+                    
+                    if analysis_success:
+                        storage_result = {
+                            "success": True,
+                            "message": analysis_message,
+                            "result_id": analysis_data["id"] if analysis_data else None
+                        }
+                    else:
+                        storage_result = {
+                            "success": False,
+                            "message": f"Failed to store analysis result: {analysis_message}"
+                        }
+            except Exception as storage_e:
+                logger.error(f"Error in storage operation: {str(storage_e)}")
+                storage_result = {
+                    "success": False,
+                    "message": f"Storage error: {str(storage_e)}"
+                }
         
         # Add storage result to the response
         analysis_result["storage"] = storage_result
         
         return analysis_result
     except Exception as e:
+        logger.error(f"Error processing resume: {str(e)}")
+        logger.error(f"Exception type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error processing resume: {str(e)}")
 
 @router.post("/analyze-batch")
@@ -227,12 +240,17 @@ async def analyze_batch(
     # Store job description if storing results
     job_description_id = None
     if store_results:
-        job_desc_success, job_desc_message, job_desc_data = await storage_service.store_job_description(
-            job_description, folder_id, user_id
-        )
-        
-        if job_desc_success and job_desc_data:
-            job_description_id = job_desc_data["id"]
+        try:
+            job_desc_success, job_desc_message, job_desc_data = await storage_service.store_job_description(
+                job_description, folder_id, user_id
+            )
+            
+            if job_desc_success and job_desc_data:
+                job_description_id = job_desc_data["id"]
+            else:
+                logger.warning(f"Failed to store job description: {job_desc_message}")
+        except Exception as e:
+            logger.error(f"Error storing job description: {str(e)}")
     
     results = []
     
@@ -254,6 +272,7 @@ async def analyze_batch(
             )
             
             if not success:
+                logger.warning(f"Failed to extract text from {resume.filename}: {resume_text}")
                 continue  # Skip files that couldn't be processed
             
             # Step 2: AI Processing - Extract candidate information
@@ -291,6 +310,10 @@ async def analyze_batch(
                 "recommendations": score_result["recommendations"]
             }
             
+            # Add detailed analysis explanation if available
+            if "analysis" in score_result:
+                analysis_result["analysis"] = score_result["analysis"]
+            
             # Step 4: Store results in Supabase if requested
             storage_result = {
                 "success": False,
@@ -298,24 +321,31 @@ async def analyze_batch(
             }
             
             if store_results and job_description_id:
-                # Get file ID if available
-                file_id = file_id_map.get(resume.filename, resume.filename)
-                
-                # Store analysis result
-                analysis_success, analysis_message, analysis_data = await storage_service.store_analysis_result(
-                    file_id, job_description_id, folder_id, user_id, analysis_result
-                )
-                
-                if analysis_success:
-                    storage_result = {
-                        "success": True,
-                        "message": analysis_message,
-                        "result_id": analysis_data["id"] if analysis_data else None
-                    }
-                else:
+                try:
+                    # Get file ID if available
+                    file_id = file_id_map.get(resume.filename, resume.filename)
+                    
+                    # Store analysis result
+                    analysis_success, analysis_message, analysis_data = await storage_service.store_analysis_result(
+                        file_id, job_description_id, folder_id, user_id, analysis_result
+                    )
+                    
+                    if analysis_success:
+                        storage_result = {
+                            "success": True,
+                            "message": analysis_message,
+                            "result_id": analysis_data["id"] if analysis_data else None
+                        }
+                    else:
+                        storage_result = {
+                            "success": False,
+                            "message": f"Failed to store analysis result: {analysis_message}"
+                        }
+                except Exception as storage_e:
+                    logger.error(f"Error storing analysis result for {resume.filename}: {str(storage_e)}")
                     storage_result = {
                         "success": False,
-                        "message": f"Failed to store analysis result: {analysis_message}"
+                        "message": f"Storage error: {str(storage_e)}"
                     }
             
             # Add storage result to the analysis
@@ -324,10 +354,19 @@ async def analyze_batch(
             results.append(analysis_result)
         except Exception as e:
             # Log the error but continue processing other files
-            print(f"Error processing {resume.filename}: {e}")
+            logger.error(f"Error processing {resume.filename}: {str(e)}")
+            # Add minimal error result to not break frontend expectations
+            results.append({
+                "filename": resume.filename,
+                "error": str(e),
+                "score": 0,
+                "matchedKeywords": [],
+                "missingKeywords": [],
+                "storage": {"success": False, "message": f"Processing error: {str(e)}"}
+            })
     
     # Sort results by score (highest first)
-    results.sort(key=lambda x: x["score"], reverse=True)
+    results.sort(key=lambda x: x.get("score", 0), reverse=True)
     
     return {"results": results}
 
