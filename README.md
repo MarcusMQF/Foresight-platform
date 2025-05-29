@@ -349,7 +349,7 @@ Our development roadmap focuses on enhancing the platform's capabilities:
 - **Interactive Chatbot Agent**: Develop customizable AI chatbot agents for initial candidate screening
 - **Email with AI**: AI tools for writing personalized emails to notify qualified candidates for next phases
 - **Mobile Experience**: Responsive design for on-the-go recruitment management
-- **Integration Ecosystem**: Connect with existing HR systems for seamless workflow
+- **Team Collaboration**: Enhance the collaboration among the team members
 
 ## Impact 🔮
 
