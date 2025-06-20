@@ -10,7 +10,7 @@ python-dotenv==1.0.0
 uuid==1.30
 transformers==4.35.0
 torch==2.0.1
-sentence-transformers==2.2.2
+sentence-transformers==4.1.0
 accelerate==0.23.0
 supabase==1.0.3
 numpy==1.24.3

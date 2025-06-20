@@ -295,6 +295,7 @@ The system delivers efficient resume processing and candidate matching while pro
     <td>Database & Backend</td>
     <td>
       <a href="https://supabase.com"><img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase"/></a>
+      <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/></a>
     </td>
     <td>Database, authentication, and API communication for candidate data management</td>
   </tr>
