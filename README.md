@@ -380,6 +380,7 @@ npm run dev
 ---
 
 <div align="center">
-  <strong>Made by Team 👕 We Just Wanted the Free T-Shirt and Accidentally Made a Startup</strong>
+  <strong>Made by Team ❤️ We Just Wanted the Free T-Shirt and Accidentally Made a Startup</strong>
+  <br>
+  <strong><em>© Hackattack 2025<em>
 </div>
- 
